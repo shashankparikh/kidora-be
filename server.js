@@ -1,3 +1,4 @@
+const uploadRoutes = require("./routes/upload");
 const bookRoutes = require("./routes/books");
 const characterRoutes = require("./routes/character");
 const express = require("express");
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/upload", imageRoutes);
 app.use("/generate-character", characterRoutes);
 app.use("/books", bookRoutes);
+app.use("/", uploadRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static("uploads"));
