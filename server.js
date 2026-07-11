@@ -12,11 +12,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Upload routes
+// Routes
 app.use("/upload", imageRoutes);
-app.use("/generate-character", characterRoutes);
 app.use("/books", bookRoutes);
 app.use("/", uploadRoutes);
+app.use("/", characterRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static("uploads"));

@@ -2,26 +2,13 @@ const express = require("express");
 
 const router = express.Router();
 
-router.post("/", (req, res) => {
+const characterController = require("../controllers/characterController");
 
-    res.json({
-        success: true,
-        message: "Mock character generated successfully.",
-        character: {
-            id: 1,
-            name: "Harvi",
-            age: 1,
-            hair: "Black",
-            eyes: "Brown",
-            outfit: "Yellow beach dress",
-            accessories: [
-                "Sun hat",
-                "Small backpack"
-            ],
-            image: "/generated/harvi-character.png"
-        }
-    });
 
-});
+router.post(
+    "/books/:bookId/character",
+    characterController.generateCharacter
+);
+
 
 module.exports = router;
