@@ -1,9 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-
 function getBookFile(bookId) {
-
     return path.join(
         __dirname,
         "..",
@@ -12,45 +10,61 @@ function getBookFile(bookId) {
         bookId,
         "book.json"
     );
-
 }
 
-
-function updateBook(bookId, updates) {
+function getBook(bookId) {
 
     const bookFile = getBookFile(bookId);
 
+    if (!fs.existsSync(bookFile)) {
+        throw new Error("Book not found");
+    }
 
-    const book = JSON.parse(
-        fs.readFileSync(bookFile, "utf-8")
+    return JSON.parse(
+        fs.readFileSync(bookFile, "utf8")
     );
+}
 
+function updateBook(bookId, updates) {
+
+    const book = getBook(bookId);
 
     const updatedBook = {
+    ...book,
+    ...updates,
 
-        ...book,
+    child: {
+        ...(book.child || {}),
+        ...(updates.child || {})
+    },
 
-        ...updates,
+    characterProfile: {
+        ...(book.characterProfile || {}),
+        ...(updates.characterProfile || {})
+    },
 
-        child: {
-            ...book.child,
-            ...(updates.child || {})
-        },
+    story: {
+        ...(book.story || {}),
+        ...(updates.story || {})
+    },
 
-        updatedAt: new Date().toISOString()
-    };
+    metadata: {
+        ...(book.metadata || {}),
+        ...(updates.metadata || {})
+    },
 
+    updatedAt: new Date().toISOString()
+};
 
     fs.writeFileSync(
-        bookFile,
+        getBookFile(bookId),
         JSON.stringify(updatedBook, null, 2)
     );
-
 
     return updatedBook;
 }
 
-
 module.exports = {
+    getBook,
     updateBook
 };

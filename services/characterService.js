@@ -1,58 +1,267 @@
-const { updateBook } = require("../utils/bookHelper");
+const fs = require("fs");
+const path = require("path");
+
+const {
+    analyzeChildPhoto
+} = require("./ai/characterVisionService");
+
+const {
+    getBook,
+    updateBook
+} = require("../utils/bookHelper");
 
 
-function generateCharacter(bookId, data = {}) {
+function createReferenceFolders(bookId) {
 
-    console.log("Character Input:", data);
+    const characterFolder = path.join(
+        __dirname,
+        "..",
+        "storage",
+        "books",
+        bookId,
+        "character"
+    );
+
+    const pagesFolder = path.join(
+        __dirname,
+        "..",
+        "storage",
+        "books",
+        bookId,
+        "pages"
+    );
+
+    fs.mkdirSync(
+        characterFolder,
+        { recursive: true }
+    );
+
+    fs.mkdirSync(
+        pagesFolder,
+        { recursive: true }
+    );
+
+}
+
+
+async function generateCharacter(
+    bookId,
+    data = {}
+) {
+
+    // -------------------------
+    // LOAD BOOK
+    // -------------------------
+
+    const book = getBook(bookId);
+
+
+    // -------------------------
+    // VALIDATION
+    // -------------------------
+
+    if (!book) {
+        throw new Error(
+            "Book not found."
+        );
+    }
+
+
+    if (!book.child.photo) {
+
+        throw new Error(
+            "Please upload a child photo before generating the character."
+        );
+
+    }
+
+
+    // -------------------------
+    // FIND CHILD PHOTO
+    // -------------------------
+
+    const photoPath = path.join(
+        __dirname,
+        "..",
+        "storage",
+        "books",
+        bookId,
+        book.child.photo
+    );
+
+
+    // -------------------------
+    // AI PHOTO ANALYSIS
+    // -------------------------
+
+    const aiProfile =
+        await analyzeChildPhoto(
+            photoPath
+        );
+
+
+    console.log(
+        "AI Profile:"
+    );
+
+    console.log(
+        aiProfile
+    );
+
+
+    // -------------------------
+    // CREATE FOLDERS
+    // -------------------------
+
+    createReferenceFolders(
+        bookId
+    );
+
+
+    // -------------------------
+    // BUILD CHARACTER PROFILE
+    // -------------------------
 
     const character = {
 
-        name: data.name || "Child",
+        profile: {
 
-        age: data.age || 1,
+            name:
+                data.name
+                ||
+                "Child",
 
-        hair: "Soft black hair",
+            age:
+                data.age
+                ||
+                1,
 
-        eyes: "Bright brown eyes",
+            gender:
+                data.gender
+                ||
+                "Unknown",
 
-        face: "Cute round face with a cheerful smile",
+            personality:
+                Array.isArray(
+                    data.traits
+                )
+                    ?
+                    data.traits
+                    :
+                    [],
 
-        outfit:
-    data.theme?.toLowerCase().includes("beach")
-        ? "Yellow beach dress with a white sun hat"
-        : "Comfortable explorer outfit",
+            specialNotes:
+                data.specialNotes
+                ||
+                "",
 
-        accessories: [
-            "Sun hat",
-            "Small backpack"
-        ],
+            hair:
+                aiProfile.hair,
 
-        personality: [
-            "Curious",
-            "Happy",
-            "Brave explorer"
-        ],
+            eyes:
+                aiProfile.eyes,
 
-        stylePrompt:
-            "Cute children's storybook illustration style, " +
-            "consistent character appearance, warm colors"
+            skinTone:
+                aiProfile.skinTone,
+
+            face:
+                aiProfile.face,
+
+            expression:
+                aiProfile.expression,
+
+            clothing:
+                aiProfile.clothing,
+
+            accessories:
+                aiProfile.accessories,
+
+            stylePrompt:
+                aiProfile.stylePrompt
+
+        },
+
+
+        visual: {
+
+            status:
+                "NOT_GENERATED",
+
+            referenceImages: {
+
+                front:
+                    null,
+
+                side:
+                    null,
+
+                smiling:
+                    null,
+
+                sitting:
+                    null
+
+            }
+
+        }
+
     };
 
 
-    const updatedBook = updateBook(bookId, {
+    // -------------------------
+    // UPDATE BOOK
+    // -------------------------
 
-    status: "CHARACTER_GENERATED",
+    const updatedBook =
+        updateBook(
+            bookId,
+            {
 
-    theme: data.theme || "",
+                status:
+                    "CHARACTER_GENERATED",
 
-    child: {
-        name: data.name || "Child",
-        age: data.age || 1
-    },
+                theme:
+                    data.theme
+                    ||
+                    "",
 
-    character
+                child: {
 
-});
+    name:
+        data.name
+        ||
+        "Child",
+
+    age:
+        data.age
+        ||
+        1,
+
+    gender:
+        data.gender
+        ||
+        "Prefer not to say",
+
+    traits:
+        Array.isArray(
+            data.traits
+        )
+            ?
+            data.traits
+            :
+            [],
+
+    specialNotes:
+        data.specialNotes
+        ||
+        ""
+
+},
+
+                character
+
+            }
+        );
 
 
     return updatedBook;

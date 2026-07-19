@@ -1,44 +1,41 @@
 const characterService = require("../services/characterService");
 
-
-function generateCharacter(req, res) {
+async function generateCharacter(req, res) {
 
     try {
 
         const bookId = req.params.bookId;
 
-        const character =
-            characterService.generateCharacter(
-                bookId,
-                req.body
-            );
-
+        const book = await characterService.generateCharacter(
+            bookId,
+            req.body
+        );
 
         res.json({
 
-            success:true,
+            success: true,
 
-            message:"Character generated successfully",
+            message: "Character generated successfully",
 
-            book:character
+            book
 
         });
 
+    } catch (error) {
 
-    } catch(error) {
+        console.error(error);
 
         res.status(500).json({
 
-            success:false,
+            success: false,
 
-            message:error.message
+            message: error.message
 
         });
 
     }
 
 }
-
 
 module.exports = {
     generateCharacter
