@@ -3,6 +3,7 @@ require("dotenv").config();
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
 const uploadRoutes = require("./routes/upload");
 const bookRoutes = require("./routes/books");
@@ -11,11 +12,16 @@ const storyRoutes = require("./routes/story");
 const illustrationRoutes = require("./routes/illustration");
 const pdfRoutes = require("./routes/pdf");
 const aiRoutes = require("./routes/ai");
+const authRoutes = require("./routes/auth");
+const meRoutes = require("./routes/me");
 
 const app = express();
 
-app.use(cors());
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Serve uploaded files
 app.use(
@@ -41,6 +47,8 @@ app.use("/", storyRoutes);
 app.use("/", illustrationRoutes);
 app.use("/", pdfRoutes);
 app.use("/", aiRoutes);
+app.use("/auth", authRoutes);
+app.use("/me", meRoutes);
 
 // Root route
 app.get("/", (req, res) => {

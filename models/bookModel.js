@@ -5,6 +5,8 @@ function createBookModel(bookId) {
 
         status: "NEW",
 
+        userId: null,
+
         child: {
             name: "",
             age: null,

@@ -12,7 +12,7 @@ function createBook(req, res) {
 
 }
 
-const { getBook } = require("../utils/bookHelper");
+const { getBook, updateBook } = require("../utils/bookHelper");
 
 function getBookById(req, res) {
 
@@ -42,7 +42,30 @@ function getBookById(req, res) {
 
 }
 
+function claimBook(req, res) {
+
+    try {
+
+        const book = updateBook(req.params.bookId, { userId: req.user.id });
+
+        res.json({
+            success: true,
+            book
+        });
+
+    } catch (error) {
+
+        res.status(404).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+
+}
+
 module.exports = {
     createBook,
-    getBookById
+    getBookById,
+    claimBook
 };
