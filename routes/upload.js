@@ -13,7 +13,7 @@ const upload = multer({
 
 router.post(
     "/books/:bookId/upload",
-    upload.single("photo"),
+    upload.array("photos", 4),
     uploadController.uploadPhoto
 );
 

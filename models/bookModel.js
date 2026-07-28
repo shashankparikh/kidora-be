@@ -10,7 +10,8 @@ function createBookModel(bookId) {
         child: {
             name: "",
             age: null,
-            photo: null
+            photo: null,
+            photos: null
         },
 
         theme: "",

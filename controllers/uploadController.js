@@ -6,7 +6,7 @@ function uploadPhoto(req, res) {
     const bookId = req.params.bookId;
 
 
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
         return res.status(400).json({
             success:false,
             message:"No image uploaded"
@@ -14,17 +14,17 @@ function uploadPhoto(req, res) {
     }
 
 
-    const filename = uploadService.savePhoto(
+    const filenames = uploadService.savePhotos(
         bookId,
-        req.file
+        req.files
     );
 
 
     res.json({
         success:true,
-        message:"Photo uploaded successfully",
+        message:"Photos uploaded successfully",
         bookId,
-        filename
+        filenames
     });
 
 }
