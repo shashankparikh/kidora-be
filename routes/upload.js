@@ -7,7 +7,7 @@ const uploadController = require("../controllers/uploadController");
 
 
 const upload = multer({
-    dest:"temp/"
+    storage: multer.memoryStorage()
 });
 
 

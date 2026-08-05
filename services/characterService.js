@@ -6,6 +6,10 @@ const {
 } = require("./ai/characterVisionService");
 
 const {
+    readImageBytes
+} = require("./imageStorage");
+
+const {
     getBook,
     updateBook
 } = require("../utils/bookHelper");
@@ -80,11 +84,7 @@ async function generateCharacter(
     // FIND CHILD PHOTO
     // -------------------------
 
-    const photoPath = path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
+    const photoBytes = await readImageBytes(
         bookId,
         book.child.photo
     );
@@ -96,7 +96,7 @@ async function generateCharacter(
 
     const aiProfile =
         await analyzeChildPhoto(
-            photoPath
+            photoBytes
         );
 
 

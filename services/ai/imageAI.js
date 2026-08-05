@@ -1,6 +1,5 @@
 require("dotenv").config();
 
-const fs = require("fs");
 const path = require("path");
 
 const OpenAI = require("openai");
@@ -9,6 +8,14 @@ const { toFile } = require("openai");
 const {
     buildIllustrationPrompt
 } = require("./illustrationPromptBuilder");
+
+const {
+    readImageBytes
+} = require("../imageStorage");
+
+const {
+    uploadBuffer
+} = require("../s3Service");
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -72,31 +79,15 @@ No watermark.
         );
     }
 
-    const referenceImagePath = path.join(
-        __dirname,
-        "..",
-        "..",
-        "storage",
-        "books",
-        book.id,
-        book.child.photo
-    );
-
-    if (!fs.existsSync(referenceImagePath)) {
-        throw new Error(
-            `Reference image not found: ${referenceImagePath}`
-        );
-    }
-
     console.log("Using reference image:");
-    console.log(referenceImagePath);
+    console.log(book.child.photo);
 
     // --------------------------------------------------
     // 3. Detect correct MIME type
     // --------------------------------------------------
 
     const extension =
-        path.extname(referenceImagePath).toLowerCase();
+        path.extname(book.child.photo).toLowerCase();
 
     let mimeType;
 
@@ -127,11 +118,11 @@ No watermark.
     // --------------------------------------------------
 
     const referenceBuffer =
-        fs.readFileSync(referenceImagePath);
+        await readImageBytes(book.id, book.child.photo);
 
     const referenceImage = await toFile(
         referenceBuffer,
-        path.basename(referenceImagePath),
+        path.basename(book.child.photo),
         {
             type: mimeType
         }
@@ -174,33 +165,7 @@ No watermark.
     );
 
     // --------------------------------------------------
-    // 6. Prepare destination folder
-    // --------------------------------------------------
-
-    const pagesFolder = path.join(
-        __dirname,
-        "..",
-        "..",
-        "storage",
-        "books",
-        book.id,
-        "pages"
-    );
-
-    fs.mkdirSync(
-        pagesFolder,
-        {
-            recursive: true
-        }
-    );
-
-    const imagePath = path.join(
-        pagesFolder,
-        `page-${page.page}.png`
-    );
-
-    // --------------------------------------------------
-    // 7. Save image
+    // 6. Upload generated illustration to S3
     // --------------------------------------------------
 
     const generatedImageBuffer =
@@ -209,15 +174,16 @@ No watermark.
             "base64"
         );
 
-    fs.writeFileSync(
-        imagePath,
-        generatedImageBuffer
+    const illustrationUrl = await uploadBuffer(
+        `books/${book.id}/pages/page-${page.page}.png`,
+        generatedImageBuffer,
+        "image/png"
     );
 
     console.log("Saved:");
-    console.log(imagePath);
+    console.log(illustrationUrl);
 
-    return imagePath;
+    return illustrationUrl;
 
 }
 

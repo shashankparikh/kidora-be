@@ -8,6 +8,7 @@ const fs = require("fs");
 const path = require("path");
 
 const { getBook, updateBook } = require("../utils/bookHelper");
+const { readImageBytes } = require("./imageStorage");
 
 
 async function generatePDF(bookId) {
@@ -75,17 +76,13 @@ async function generatePDF(bookId) {
     if (book.child.photo) {
 
 
-        const imagePath = path.join(
-            bookFolder,
-            book.child.photo
-        );
-
-
-        if (fs.existsSync(imagePath)) {
-
+        try {
 
             const imageBytes =
-                fs.readFileSync(imagePath);
+                await readImageBytes(
+                    bookId,
+                    book.child.photo
+                );
 
 
             let image;
@@ -120,6 +117,10 @@ async function generatePDF(bookId) {
                     height: 250
                 }
             );
+
+        } catch {
+
+            // Child photo missing/unreachable — cover just skips it.
 
         }
 
@@ -163,51 +164,46 @@ async function generatePDF(bookId) {
 
 
 
-        /*
-          Future AI image support
+        let illustrationEmbedded = false;
 
-          Example:
-          page-1.png
-          page-2.png
-        */
+        if (storyPage.illustration) {
 
+            try {
 
-        const illustrationPath =
-            path.join(
-                bookFolder,
-                `page-${storyPage.page}.png`
-            );
+                const imageBytes =
+                    await readImageBytes(
+                        bookId,
+                        storyPage.illustration
+                    );
 
 
-        if (
-            fs.existsSync(illustrationPath)
-        ) {
+                const image =
+                    await pdfDoc.embedPng(
+                        imageBytes
+                    );
 
 
-            const imageBytes =
-                fs.readFileSync(
-                    illustrationPath
+                page.drawImage(
+                    image,
+                    {
+                        x: 100,
+                        y: 250,
+                        width: 400,
+                        height: 300
+                    }
                 );
 
+                illustrationEmbedded = true;
 
-            const image =
-                await pdfDoc.embedPng(
-                    imageBytes
-                );
+            } catch {
 
+                // Illustration missing/unreachable — falls through to the placeholder text below.
 
-            page.drawImage(
-                image,
-                {
-                    x: 100,
-                    y: 250,
-                    width: 400,
-                    height: 300
-                }
-            );
+            }
 
+        }
 
-        } else {
+        if (!illustrationEmbedded) {
 
 
             page.drawText(

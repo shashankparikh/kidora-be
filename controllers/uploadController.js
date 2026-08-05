@@ -1,7 +1,7 @@
 const uploadService = require("../services/uploadService");
 
 
-function uploadPhoto(req, res) {
+async function uploadPhoto(req, res) {
 
     const bookId = req.params.bookId;
 
@@ -14,18 +14,30 @@ function uploadPhoto(req, res) {
     }
 
 
-    const filenames = uploadService.savePhotos(
-        bookId,
-        req.files
-    );
+    try {
 
+        const filenames = await uploadService.savePhotos(
+            bookId,
+            req.files
+        );
 
-    res.json({
-        success:true,
-        message:"Photos uploaded successfully",
-        bookId,
-        filenames
-    });
+        res.json({
+            success:true,
+            message:"Photos uploaded successfully",
+            bookId,
+            filenames
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+            success: false,
+            message: err.message
+        });
+
+    }
 
 }
 

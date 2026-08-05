@@ -27,6 +27,7 @@ async function generateIllustrations(bookId) {
         console.log(`\nStarting Page ${page.page}...`);
 
         let success = false;
+        let illustrationUrl = null;
 
         // Retry up to 3 times for temporary OpenAI errors
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -37,8 +38,8 @@ async function generateIllustrations(bookId) {
                     `Generating Page ${page.page} - Attempt ${attempt}`
                 );
 
-                // Generate and save the physical PNG file
-                await generateIllustration(
+                // Generate the illustration and upload it to S3
+                illustrationUrl = await generateIllustration(
                     book,
                     page
                 );
@@ -80,10 +81,6 @@ async function generateIllustrations(bookId) {
             );
 
         }
-
-        // Browser-friendly URL served by Express /storage route
-        const illustrationUrl =
-            `/storage/books/${bookId}/pages/page-${page.page}.png`;
 
         updatedPages.push({
 

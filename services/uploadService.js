@@ -1,42 +1,21 @@
-const fs = require("fs");
 const path = require("path");
 const { updateBook } = require("../utils/bookHelper");
+const { uploadBuffer } = require("./s3Service");
 
 
-function getBookFolder(bookId) {
+async function savePhotos(bookId, files) {
 
-    return path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId
+    const uploadedUrls = await Promise.all(
+        files.map((file, index) => {
+
+            const newFileName = "original-" + (index + 1) + path.extname(file.originalname);
+
+            const key = `books/${bookId}/${newFileName}`;
+
+            return uploadBuffer(key, file.buffer, file.mimetype);
+
+        })
     );
-
-}
-
-
-function savePhotos(bookId, files) {
-
-    const bookFolder = getBookFolder(bookId);
-
-    const newFileNames = files.map((file, index) => {
-
-        const newFileName = "original-" + (index + 1) + path.extname(file.originalname);
-
-        const destination = path.join(
-            bookFolder,
-            newFileName
-        );
-
-        fs.renameSync(
-            file.path,
-            destination
-        );
-
-        return newFileName;
-
-    });
 
 
     updateBook(bookId, {
@@ -48,13 +27,13 @@ function savePhotos(bookId, files) {
             // were built around a single reference photo — keep working
             // unchanged. `photos` is the full set for anything that
             // needs all of them.
-            photo: newFileNames[0],
-            photos: newFileNames
+            photo: uploadedUrls[0],
+            photos: uploadedUrls
         }
     });
 
 
-    return newFileNames;
+    return uploadedUrls;
 }
 
 

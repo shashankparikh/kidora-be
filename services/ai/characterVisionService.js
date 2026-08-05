@@ -1,15 +1,12 @@
 require("dotenv").config();
 
-const fs = require("fs");
 const { GoogleGenAI } = require("@google/genai");
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
 
-async function analyzeChildPhoto(photoPath) {
-
-    const imageBytes = fs.readFileSync(photoPath);
+async function analyzeChildPhoto(imageBytes) {
 
     const prompt = `
 Analyze this child's photo.

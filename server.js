@@ -14,6 +14,8 @@ const pdfRoutes = require("./routes/pdf");
 const aiRoutes = require("./routes/ai");
 const authRoutes = require("./routes/auth");
 const meRoutes = require("./routes/me");
+const themeRoutes = require("./routes/themes");
+const homeRoutes = require("./routes/home");
 
 const app = express();
 
@@ -39,6 +41,17 @@ app.use(
     )
 );
 
+// Serve CMS-style static assets (hero art, widget images, ...). Stands in
+// for an S3 bucket during local dev — every img_url built by homeService
+// points here, so switching to real S3 later is just swapping the base
+// URL in that one place, no route/consumer changes needed.
+app.use(
+    "/assets",
+    express.static(
+        path.join(__dirname, "assets")
+    )
+);
+
 // Routes
 app.use("/books", bookRoutes);
 app.use("/", uploadRoutes);
@@ -49,6 +62,8 @@ app.use("/", pdfRoutes);
 app.use("/", aiRoutes);
 app.use("/auth", authRoutes);
 app.use("/me", meRoutes);
+app.use("/", themeRoutes);
+app.use("/", homeRoutes);
 
 // Root route
 app.get("/", (req, res) => {
