@@ -48,8 +48,53 @@ db.exec(`
         created_at TEXT NOT NULL
     );
 
+    -- One row per completed purchase. Digital delivery is instant (no
+    -- shipping/payment gateway wired up yet — see checkout.paymentComingSoon
+    -- on the frontend), so orders are created already "delivered": the
+    -- book is readable the moment the order exists. status is kept as a
+    -- free-form column rather than an enum so a real fulfillment pipeline
+    -- (e.g. a physical hardcover add-on) can introduce intermediate states
+    -- like "processing" later without a schema change.
+    CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        book_id TEXT NOT NULL,
+        book_title TEXT,
+        cover_image_url TEXT,
+        story_theme TEXT,
+        child_name TEXT,
+        status TEXT NOT NULL DEFAULT 'delivered',
+        total REAL NOT NULL DEFAULT 0,
+        placed_at TEXT NOT NULL,
+        delivered_at TEXT,
+        updated_at TEXT NOT NULL
+    );
+
+    -- One review per order (UNIQUE order_id), gated behind an actual
+    -- delivered purchase rather than open to anyone. Starts "pending" and
+    -- only counts toward the public summary / testimonials feed once
+    -- approved — moderation-before-publish given the audience is parents
+    -- and children.
+    CREATE TABLE IF NOT EXISTS reviews (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        book_id TEXT NOT NULL,
+        child_name TEXT,
+        story_theme TEXT,
+        rating INTEGER NOT NULL,
+        title TEXT,
+        comment TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_auth_accounts_user_id ON auth_accounts(user_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
+    CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
 `);
 
 module.exports = db;

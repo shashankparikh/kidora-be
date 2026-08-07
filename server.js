@@ -16,6 +16,8 @@ const authRoutes = require("./routes/auth");
 const meRoutes = require("./routes/me");
 const themeRoutes = require("./routes/themes");
 const homeRoutes = require("./routes/home");
+const orderRoutes = require("./routes/orders");
+const reviewRoutes = require("./routes/reviews");
 
 const app = express();
 
@@ -64,6 +66,8 @@ app.use("/auth", authRoutes);
 app.use("/me", meRoutes);
 app.use("/", themeRoutes);
 app.use("/", homeRoutes);
+app.use("/orders", orderRoutes);
+app.use("/reviews", reviewRoutes);
 
 // Root route
 app.get("/", (req, res) => {

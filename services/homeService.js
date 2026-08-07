@@ -1,4 +1,5 @@
 const themeService = require("./themeService");
+const reviewService = require("./reviewService");
 
 const ASSETS_BASE_URL = process.env.ASSETS_BASE_URL || "http://localhost:3000/assets";
 
@@ -78,6 +79,11 @@ function getHomeWidgets() {
                     icon: theme.icon,
                     title: theme.name,
                     description: theme.description,
+                    age_range: theme.ageRange,
+                    pages: theme.pages,
+                    price: theme.price,
+                    original_price: theme.originalPrice,
+                    discount_label: theme.discountLabel,
                     img_url: null
                 }))
             }
@@ -148,35 +154,87 @@ function getHomeWidgets() {
         },
 
         {
+            widget_code: "magic_process_main",
+            widget_name: "Magic Process",
+            widget_type: "magic_process",
+            cta_url: "/personalize",
+            data: {
+                eyebrow: "How The Magic Happens",
+                title: "The Magic Behind Every Kidora Story",
+                subtitle: "Every book is handcrafted around your child — blending a real photo with a hand-picked story world.",
+                cta: "Begin Their Adventure",
+                trust_badges: [
+                    "AI-crafted with care",
+                    "Safe, private photo handling",
+                    "Preview before you pay",
+                    "Instant digital access, forever"
+                ],
+                steps: [
+                    {
+                        id: "introduce",
+                        number: 1,
+                        title: "Introduce your little star",
+                        description: "Share their name, age, a few personality traits, and a couple of clear photos to begin the magic."
+                    },
+                    {
+                        id: "likeness",
+                        number: 2,
+                        title: "AI paints their likeness",
+                        description: "We carefully recreate your child's features and weave them into a consistent storybook character across every page."
+                    },
+                    {
+                        id: "world",
+                        number: 3,
+                        title: "Pick their adventure",
+                        description: "Choose from magical worlds — dinosaurs, space, the beach, and more — each one written fresh around your child."
+                    },
+                    {
+                        id: "written",
+                        number: 4,
+                        title: "Their story is written and illustrated",
+                        description: "Our story engine writes a one-of-a-kind adventure and illustrates it page by page, just for them."
+                    },
+                    {
+                        id: "preview",
+                        number: 5,
+                        title: "Preview before you commit",
+                        description: "Read the cover and first page for free — no payment needed until you love what you see."
+                    },
+                    {
+                        id: "keepsake",
+                        number: 6,
+                        title: "Read instantly, or hold it forever",
+                        description: "Dive in online right away, and add a printed hardcover keepsake at checkout if you'd like one shipped home."
+                    }
+                ]
+            }
+        },
+
+        {
             widget_code: "testimonials_main",
             widget_name: "Testimonials",
             widget_type: "testimonials",
+            cta_url: "/reviews",
             data: {
                 eyebrow: "What Parents Say",
                 title: "Stories that stay with them",
-                items: [
-                    {
-                        id: "riya",
-                        quote: "My son asks for his Kidora book every single night. Seeing his own name on the page still makes him light up.",
-                        author: "Riya K.",
-                        meta: "Mother of Kabir, age 5",
-                        img_url: null
-                    },
-                    {
-                        id: "arjun",
-                        quote: "We gave it as a birthday gift. Watching her realize she was the hero of the story was worth every bit of it.",
-                        author: "Arjun D.",
-                        meta: "Father of Ananya, age 6",
-                        img_url: null
-                    },
-                    {
-                        id: "meera",
-                        quote: "It's become part of our bedtime routine. It's not just a book anymore — it's part of his childhood.",
-                        author: "Meera S.",
-                        meta: "Mother of Vihaan, age 4",
-                        img_url: null
-                    }
-                ]
+                view_all_label: "View All",
+                // Real, moderated customer reviews once there are enough of
+                // them (see reviewService.MIN_REAL_REVIEWS) — falls back to
+                // a handful of seed quotes so this section never looks
+                // empty on a fresh install. rating_summary is omitted
+                // entirely (not zeroed out) until there's enough real data
+                // to be honest about — see reviewService.getSummary.
+                items: reviewService.getFeaturedReviews(6).map((review) => ({
+                    id: review.id,
+                    quote: review.comment || review.title || "",
+                    author: review.author,
+                    meta: review.meta,
+                    rating: review.rating,
+                    story_theme: review.storyTheme,
+                    img_url: null
+                })),
+                rating_summary: reviewService.getSummary()
             }
         },
 
