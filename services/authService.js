@@ -8,8 +8,24 @@ const {
     hashRefreshToken,
     refreshExpiryDate
 } = require("../utils/tokens");
+const { sendEmail } = require("./emailService");
+const { welcomeEmail } = require("./emailTemplates");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const APP_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
+// Fire-and-forget — a slow/failed welcome email should never delay or
+// fail the signup response. emailService itself never throws.
+function sendWelcomeEmail(user) {
+
+    const { subject, html } = welcomeEmail({
+        name: user.first_name || user.firstName,
+        appUrl: APP_URL
+    });
+
+    sendEmail({ to: user.email, subject, html });
+
+}
 
 const PASSWORD_MIN_LENGTH = 8;
 
@@ -62,6 +78,8 @@ async function register({ email, password, firstName, lastName, mobileNumber }, 
         provider: "password",
         providerAccountId: user.email
     });
+
+    sendWelcomeEmail(user);
 
     return issueSession(user, context);
 
@@ -137,6 +155,8 @@ async function loginWithGoogle({ idToken }, context) {
             avatarUrl: payload.picture ?? null,
             emailVerified: Boolean(payload.email_verified)
         });
+
+        sendWelcomeEmail(user);
 
     }
 

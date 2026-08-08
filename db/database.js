@@ -90,6 +90,14 @@ db.exec(`
         updated_at TEXT NOT NULL
     );
 
+    -- Marketing opt-in, separate from the users table since a visitor can
+    -- subscribe without ever creating an account.
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        subscribed_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_auth_accounts_user_id ON auth_accounts(user_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);

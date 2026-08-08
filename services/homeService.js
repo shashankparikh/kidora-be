@@ -274,6 +274,18 @@ function getHomeWidgets() {
                 cta: "Begin Their Story",
                 cta_url: "/personalize"
             }
+        },
+
+        {
+            widget_code: "newsletter_main",
+            widget_name: "Newsletter",
+            widget_type: "newsletter",
+            data: {
+                title: "Sign up to our newsletter",
+                subtitle: "New story worlds, features, and the occasional offer — no spam, just magic.",
+                placeholder: "Enter your email address",
+                cta: "Sign Me Up"
+            }
         }
 
     ];

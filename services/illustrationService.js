@@ -1,9 +1,40 @@
 const { getBook, updateBook } = require("../utils/bookHelper");
 const { generateIllustration } = require("./ai/imageAI");
+const userStore = require("../db/userStore");
+const { sendEmail } = require("./emailService");
+const { storyReadyEmail } = require("./emailTemplates");
+
+const APP_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 // Delay helper used only for retries
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Best-effort, fire-and-forget — only fires for books claimed by a logged
+// in user (anonymous books have no userId, so no one to email). Never
+// throws, so a missing user or failed send can't fail generation.
+function sendStoryReadyEmail(book) {
+
+    if (!book.userId) {
+        return;
+    }
+
+    const user = userStore.getUserById(book.userId);
+
+    if (!user) {
+        return;
+    }
+
+    const { subject, html } = storyReadyEmail({
+        name: user.first_name,
+        childName: book.child?.name,
+        bookTitle: book.story?.title,
+        previewUrl: `${APP_URL}/preview/${book.id}`
+    });
+
+    sendEmail({ to: user.email, subject, html });
+
 }
 
 async function generateIllustrations(bookId) {
@@ -109,6 +140,8 @@ async function generateIllustrations(bookId) {
     console.log(
         "✅ All illustrations generated successfully."
     );
+
+    sendStoryReadyEmail(updatedBook);
 
     return updatedBook;
 
