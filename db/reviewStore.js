@@ -38,6 +38,7 @@ function toPublicReview(row) {
         storyTheme: row.story_theme,
         status: row.status,
         author: formatAuthorName(row.first_name, row.last_name),
+        authorEmail: row.email || undefined,
         createdAt: row.created_at
     };
 
@@ -72,7 +73,7 @@ function createReview({ orderId, userId, bookId, childName, storyTheme, rating, 
 }
 
 const SELECT_WITH_AUTHOR = `
-    SELECT r.*, u.first_name, u.last_name
+    SELECT r.*, u.first_name, u.last_name, u.email
     FROM reviews r
     JOIN users u ON u.id = r.user_id
 `;
@@ -134,10 +135,25 @@ function getSummary() {
 
 }
 
-function listPendingReviews() {
-    return db.prepare(
-        `${SELECT_WITH_AUTHOR} WHERE r.status = 'pending' ORDER BY r.created_at ASC`
-    ).all().map(toPublicReview);
+// Admin-facing: every review across every customer, optionally filtered
+// by status (pending / approved / rejected). Superset of the old
+// listPendingReviews — the admin moderation screen wants to see all
+// three buckets, not just the pending queue.
+function listAllReviews({ status } = {}) {
+
+    const conditions = [];
+    const params = {};
+
+    if (status) {
+        conditions.push("r.status = @status");
+        params.status = status;
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const query = `${SELECT_WITH_AUTHOR} ${where} ORDER BY r.created_at DESC`;
+
+    return db.prepare(query).all(params).map(toPublicReview);
+
 }
 
 function setReviewStatus(id, status) {
@@ -156,6 +172,6 @@ module.exports = {
     getReviewByOrderId,
     listApprovedReviews,
     getSummary,
-    listPendingReviews,
+    listAllReviews,
     setReviewStatus
 };

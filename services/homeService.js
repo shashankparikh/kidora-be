@@ -15,12 +15,13 @@ function getHomeWidgets() {
                 badge: "✨ Every Child Deserves a Magical Adventure",
                 title_line1: "Every child deserves",
                 title_highlight: "a story that stars them",
-                description: "Kidora turns your child into the hero of their very own AI-illustrated storybook — built around their name, their personality, and the adventures they dream about.",
+                description: "Kidora turns your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
                 primary_cta: "✨ Create Their Book",
                 primary_cta_url: "/personalize",
                 secondary_cta: "See How It Works",
                 secondary_cta_url: "#how-it-works",
                 img_url: `${ASSETS_BASE_URL}/hero.jpeg`,
+                quick_picks_heading: "What adventure will they choose?",
                 quick_picks: themeService.getStoryThemes().map((theme) => ({
                     id: theme.id,
                     icon: theme.icon,
@@ -59,7 +60,7 @@ function getHomeWidgets() {
                     id: "magic",
                     icon: "✨",
                     color: "blue",
-                    title: "AI-Powered Magic",
+                    title: "Story Magic",
                     description: "A brand-new story crafted just for them"
                 }
             ]
@@ -164,7 +165,7 @@ function getHomeWidgets() {
                 subtitle: "Every book is handcrafted around your child — blending a real photo with a hand-picked story world.",
                 cta: "Begin Their Adventure",
                 trust_badges: [
-                    "AI-crafted with care",
+                    "Crafted with care",
                     "Safe, private photo handling",
                     "Preview before you pay",
                     "Instant digital access, forever"
@@ -179,7 +180,7 @@ function getHomeWidgets() {
                     {
                         id: "likeness",
                         number: 2,
-                        title: "AI paints their likeness",
+                        title: "We paint their likeness",
                         description: "We carefully recreate your child's features and weave them into a consistent storybook character across every page."
                     },
                     {

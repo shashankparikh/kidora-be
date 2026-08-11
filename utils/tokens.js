@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 
 const ACCESS_TOKEN_TTL = "15m";
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const ADMIN_TOKEN_TTL = "12h";
 
 function getAccessSecret() {
     const secret = process.env.JWT_ACCESS_SECRET;
@@ -38,11 +39,33 @@ function refreshExpiryDate() {
     return new Date(Date.now() + REFRESH_TOKEN_TTL_MS).toISOString();
 }
 
+// Admin tokens are a completely separate, lighter-weight scheme from the
+// customer auth above — there's no admin-users table yet (just a single
+// hardcoded operator login), so this just signs a scoped JWT off the same
+// secret rather than reusing signAccessToken's user-row-shaped claims.
+function signAdminToken(admin) {
+    return jwt.sign(
+        { sub: admin.username, role: "admin", scope: "admin" },
+        getAccessSecret(),
+        { expiresIn: ADMIN_TOKEN_TTL }
+    );
+}
+
+function verifyAdminToken(token) {
+    const claims = jwt.verify(token, getAccessSecret());
+    if (claims.scope !== "admin") {
+        throw new Error("Not an admin token.");
+    }
+    return claims;
+}
+
 module.exports = {
     signAccessToken,
     verifyAccessToken,
     generateRefreshToken,
     hashRefreshToken,
     refreshExpiryDate,
-    REFRESH_TOKEN_TTL_MS
+    REFRESH_TOKEN_TTL_MS,
+    signAdminToken,
+    verifyAdminToken
 };

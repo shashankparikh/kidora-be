@@ -44,8 +44,33 @@ function getOrderForUser(orderId, userId) {
     return orderStore.getOrderByIdForUser(orderId, userId);
 }
 
+// Admin dashboard deals in "pending / success / rejected" — there's no
+// real payment gateway yet, so every order the system creates today lands
+// straight on the DB's 'delivered' status (see orders table comment in
+// database.js). Rather than invent a literal 'success' status string in
+// the DB (which would fork from the 'delivered' language the customer-
+// facing Orders page already uses), this aliases at the API boundary:
+// 'success' in <-> 'delivered' in the DB, everything else passes through
+// unchanged so a real 'pending'/'rejected' status can be introduced later
+// (e.g. once a payment gateway exists) without another migration here.
+const DISPLAY_TO_DB_STATUS = { success: "delivered" };
+const DB_TO_DISPLAY_STATUS = { delivered: "success" };
+
+function listAllOrders({ status } = {}) {
+
+    const dbStatus = status ? (DISPLAY_TO_DB_STATUS[status] || status) : undefined;
+    const orders = orderStore.listAllOrders({ status: dbStatus });
+
+    return orders.map((order) => ({
+        ...order,
+        status: DB_TO_DISPLAY_STATUS[order.status] || order.status
+    }));
+
+}
+
 module.exports = {
     createOrder,
     listOrdersForUser,
-    getOrderForUser
+    getOrderForUser,
+    listAllOrders
 };

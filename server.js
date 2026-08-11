@@ -18,13 +18,20 @@ const themeRoutes = require("./routes/themes");
 const homeRoutes = require("./routes/home");
 const orderRoutes = require("./routes/orders");
 const reviewRoutes = require("./routes/reviews");
+const adminRoutes = require("./routes/admin");
 const newsletterRoutes = require("./routes/newsletter");
+const privacyPolicyRoutes = require("./routes/privacyPolicy");
+const faqRoutes = require("./routes/faq");
 
 const app = express();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+// kidora-admin runs as its own separate Vite app/origin — defaults to the
+// next port over from the customer site's 5173, overridable via env.
+const ADMIN_URL = process.env.ADMIN_URL || "http://localhost:5174";
+const ALLOWED_ORIGINS = [FRONTEND_URL, ADMIN_URL];
 
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -69,7 +76,10 @@ app.use("/", themeRoutes);
 app.use("/", homeRoutes);
 app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
+app.use("/admin", adminRoutes);
 app.use("/newsletter", newsletterRoutes);
+app.use("/", privacyPolicyRoutes);
+app.use("/", faqRoutes);
 
 // Root route
 app.get("/", (req, res) => {

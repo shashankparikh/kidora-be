@@ -60,41 +60,8 @@ function getSummary(req, res) {
 
 }
 
-function listPendingReviews(req, res) {
-
-    res.json({
-        success: true,
-        reviews: reviewService.listPendingReviews()
-    });
-
-}
-
-function moderateReview(req, res) {
-
-    try {
-
-        const review = reviewService.moderateReview(req.params.reviewId, req.body.status);
-
-        res.json({
-            success: true,
-            review
-        });
-
-    } catch (error) {
-
-        res.status(400).json({
-            success: false,
-            message: error.message
-        });
-
-    }
-
-}
-
 module.exports = {
     createReview,
     listReviews,
-    getSummary,
-    listPendingReviews,
-    moderateReview
+    getSummary
 };

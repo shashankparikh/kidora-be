@@ -36,7 +36,7 @@ function welcomeEmail({ name, appUrl }) {
         subject: "Welcome to Kidora ✨",
         html: layout({
             heading: `Welcome, ${name || "there"}!`,
-            body: "Your Kidora account is ready. Turn your child into the hero of their very own AI-illustrated storybook — built around their name, their personality, and the adventures they dream about.",
+            body: "Your Kidora account is ready. Turn your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
             ctaLabel: "Start Their Story",
             ctaUrl: `${appUrl}/personalize`
         })

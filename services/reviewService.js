@@ -136,8 +136,10 @@ function listPublicReviews({ theme, limit } = {}) {
     return reviewStore.listApprovedReviews({ theme, limit });
 }
 
-function listPendingReviews() {
-    return reviewStore.listPendingReviews();
+// Admin dashboard: every review, optionally filtered by moderation status
+// (pending / approved / rejected).
+function listAllReviews({ status } = {}) {
+    return reviewStore.listAllReviews({ status });
 }
 
 function moderateReview(id, status) {
@@ -156,6 +158,6 @@ module.exports = {
     getFeaturedReviews,
     getSummary,
     listPublicReviews,
-    listPendingReviews,
+    listAllReviews,
     moderateReview
 };

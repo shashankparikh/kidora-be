@@ -28,6 +28,22 @@ function toPublicOrder(row) {
 
 }
 
+function toAdminOrder(row) {
+
+    const base = toPublicOrder(row);
+
+    if (!base) {
+        return null;
+    }
+
+    return {
+        ...base,
+        customerName: [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+        customerEmail: row.email || null
+    };
+
+}
+
 // Orders are always created "delivered" — see the comment on the orders
 // table in database.js for why. deliveredAt mirrors placedAt for the
 // same reason.
@@ -79,6 +95,19 @@ const SELECT_WITH_REVIEW_FLAG = `
     FROM orders o
 `;
 
+// Admin listing also needs to know who placed the order, so this joins
+// the users table on top of the review flag above.
+const SELECT_ADMIN = `
+    SELECT
+        o.*,
+        EXISTS(SELECT 1 FROM reviews r WHERE r.order_id = o.id) AS has_review,
+        u.first_name,
+        u.last_name,
+        u.email
+    FROM orders o
+    JOIN users u ON u.id = o.user_id
+`;
+
 function getOrderById(id) {
     const row = db.prepare(`${SELECT_WITH_REVIEW_FLAG} WHERE o.id = ?`).get(id);
     return toPublicOrder(row);
@@ -96,9 +125,33 @@ function listOrdersForUser(userId) {
     return rows.map(toPublicOrder);
 }
 
+// Admin-facing: every order across every customer, optionally filtered by
+// the raw DB status value (callers translate any display-level aliasing,
+// e.g. "success" -> "delivered", before calling this).
+function listAllOrders({ status } = {}) {
+
+    const conditions = [];
+    const params = {};
+
+    if (status) {
+        conditions.push("o.status = @status");
+        params.status = status;
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const rows = db.prepare(
+        `${SELECT_ADMIN} ${where} ORDER BY o.placed_at DESC`
+    ).all(params);
+
+    return rows.map(toAdminOrder);
+
+}
+
 module.exports = {
     createOrder,
     getOrderById,
     getOrderByIdForUser,
-    listOrdersForUser
+    listOrdersForUser,
+    listAllOrders
 };
