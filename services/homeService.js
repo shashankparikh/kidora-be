@@ -15,7 +15,7 @@ function getHomeWidgets() {
                 badge: "✨ Every Child Deserves a Magical Adventure",
                 title_line1: "Every child deserves",
                 title_highlight: "a story that stars them",
-                description: "Kidora turns your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
+                description: "OopsyInk turns your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
                 primary_cta: "✨ Create Their Book",
                 primary_cta_url: "/personalize",
                 secondary_cta: "See How It Works",
@@ -123,7 +123,7 @@ function getHomeWidgets() {
 
         {
             widget_code: "why_kidora_main",
-            widget_name: "Why Kidora",
+            widget_name: "Why OopsyInk",
             widget_type: "why_kidora",
             cta_url: "/personalize",
             data: {
@@ -161,7 +161,7 @@ function getHomeWidgets() {
             cta_url: "/personalize",
             data: {
                 eyebrow: "How The Magic Happens",
-                title: "The Magic Behind Every Kidora Story",
+                title: "The Magic Behind Every OopsyInk Story",
                 subtitle: "Every book is handcrafted around your child — blending a real photo with a hand-picked story world.",
                 cta: "Begin Their Adventure",
                 trust_badges: [

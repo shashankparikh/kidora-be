@@ -29,7 +29,7 @@ function getPrivacyPolicy() {
                 icon: "family",
                 color: "green",
                 title: "3. Children's Privacy",
-                description: "Kidora is designed for purchases and personalization by parents or guardians. Children's information should only be submitted by an authorized parent or guardian."
+                description: "OopsyInk is designed for purchases and personalization by parents or guardians. Children's information should only be submitted by an authorized parent or guardian."
             },
             {
                 id: "photos",
@@ -72,7 +72,7 @@ function getPrivacyPolicy() {
             title: "Questions about your privacy?",
             subtitle: "We're here to help.",
             email_label: "Email us",
-            email: "hello@kidora.com",
+            email: "hello@oopsyink.com",
             reply_label: "We usually reply within",
             reply_time: "24 hours"
         },

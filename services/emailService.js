@@ -4,7 +4,7 @@ const client = process.env.RESEND_API_KEY
     ? new Resend(process.env.RESEND_API_KEY)
     : null;
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Kidora <onboarding@resend.dev>";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "OopsyInk <onboarding@resend.dev>";
 
 // Every caller in this app treats email as best-effort — a failed send
 // should never fail the request it's attached to (signup, story

@@ -22,6 +22,10 @@ const adminRoutes = require("./routes/admin");
 const newsletterRoutes = require("./routes/newsletter");
 const privacyPolicyRoutes = require("./routes/privacyPolicy");
 const faqRoutes = require("./routes/faq");
+const aboutRoutes = require("./routes/about");
+const refundPolicyRoutes = require("./routes/refundPolicy");
+const careersRoutes = require("./routes/careers");
+const contactRoutes = require("./routes/contact");
 
 const app = express();
 
@@ -80,6 +84,10 @@ app.use("/admin", adminRoutes);
 app.use("/newsletter", newsletterRoutes);
 app.use("/", privacyPolicyRoutes);
 app.use("/", faqRoutes);
+app.use("/", aboutRoutes);
+app.use("/", refundPolicyRoutes);
+app.use("/", careersRoutes);
+app.use("/", contactRoutes);
 
 // Root route
 app.get("/", (req, res) => {

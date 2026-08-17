@@ -8,7 +8,7 @@ if (!fs.existsSync(storageDir)) {
     fs.mkdirSync(storageDir, { recursive: true });
 }
 
-const db = new Database(path.join(storageDir, "kidora.db"));
+const db = new Database(path.join(storageDir, "oopsyink.db"));
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

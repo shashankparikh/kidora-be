@@ -11,7 +11,7 @@ function layout({ heading, body, ctaLabel, ctaUrl }) {
 <div style="background:#f5f6fc;padding:40px 16px;font-family:'Trebuchet MS','Segoe UI',sans-serif;">
   <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 14px 30px rgba(20,24,74,0.12);">
     <div style="background:${NAVY};padding:28px 32px;text-align:center;">
-      <span style="color:#ffffff;font-size:20px;font-weight:800;">📖 Kidora</span>
+      <span style="color:#ffffff;font-size:20px;font-weight:800;">📖 OopsyInk</span>
     </div>
     <div style="padding:32px;">
       <h1 style="margin:0 0 16px;color:${INK};font-size:22px;">${heading}</h1>
@@ -33,10 +33,10 @@ function layout({ heading, body, ctaLabel, ctaUrl }) {
 function welcomeEmail({ name, appUrl }) {
 
     return {
-        subject: "Welcome to Kidora ✨",
+        subject: "Welcome to OopsyInk ✨",
         html: layout({
             heading: `Welcome, ${name || "there"}!`,
-            body: "Your Kidora account is ready. Turn your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
+            body: "Your OopsyInk account is ready. Turn your child into the hero of their very own illustrated storybook — built around their name, their personality, and the adventures they dream about.",
             ctaLabel: "Start Their Story",
             ctaUrl: `${appUrl}/personalize`
         })
@@ -65,7 +65,7 @@ function newsletterConfirmationEmail({ appUrl }) {
         html: layout({
             heading: "You're subscribed!",
             body: "Thanks for signing up. We'll send you the occasional update on new story worlds, features, and offers — no spam, just magic.",
-            ctaLabel: "Explore Kidora",
+            ctaLabel: "Explore OopsyInk",
             ctaUrl: appUrl
         })
     };

@@ -10,7 +10,7 @@ const FALLBACK_REVIEWS = [
         id: "seed-riya",
         rating: 5,
         title: null,
-        comment: "My son asks for his Kidora book every single night. Seeing his own name on the page still makes him light up.",
+        comment: "My son asks for his OopsyInk book every single night. Seeing his own name on the page still makes him light up.",
         childName: null,
         storyTheme: null,
         author: "Riya K.",

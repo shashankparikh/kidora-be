@@ -8,7 +8,7 @@ function getFaq() {
         title_line1: "Frequently",
         title_line2: "Asked",
         title_highlight: "Questions",
-        subtitle: "Everything you want to know about Kidora and your child's magical storybook.",
+        subtitle: "Everything you want to know about OopsyInk and your child's magical storybook.",
         badge_label: "All your questions, answered",
         items: [
             {

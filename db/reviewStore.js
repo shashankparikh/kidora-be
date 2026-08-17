@@ -15,7 +15,7 @@ function formatAuthorName(firstName, lastName) {
     const lastInitial = (lastName || "").trim().charAt(0);
 
     if (!first) {
-        return "A Kidora parent";
+        return "An OopsyInk parent";
     }
 
     return lastInitial ? `${first} ${lastInitial}.` : first;
