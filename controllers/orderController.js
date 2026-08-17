@@ -5,7 +5,7 @@ function createOrder(req, res) {
 
     try {
 
-        const { bookId, total } = req.body;
+        const { bookId, total, gaClientId } = req.body;
 
         if (!bookId) {
             return res.status(400).json({ success: false, message: "bookId is required." });
@@ -14,7 +14,8 @@ function createOrder(req, res) {
         const order = orderService.createOrder({
             userId: req.user.id,
             bookId,
-            total
+            total,
+            gaClientId
         });
 
         res.json({

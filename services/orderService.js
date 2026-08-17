@@ -1,12 +1,13 @@
 const { getBook } = require("../utils/bookHelper");
 const orderStore = require("../db/orderStore");
+const analyticsService = require("./analyticsService");
 
 // Base price lives on the frontend today (constants/pricing.ts) since
 // there's no payment gateway wired up yet to verify it server-side — see
 // checkout.paymentComingSoon. `total` is trusted from the client for now;
 // once real payment processing exists, computing/verifying the total here
 // (from the book + add-ons) should replace this.
-function createOrder({ userId, bookId, total }) {
+function createOrder({ userId, bookId, total, gaClientId }) {
 
     const book = getBook(bookId);
 
@@ -24,7 +25,7 @@ function createOrder({ userId, bookId, total }) {
 
     const coverImageUrl = book.story.pages?.[0]?.illustration ?? null;
 
-    return orderStore.createOrder({
+    const order = orderStore.createOrder({
         userId,
         bookId,
         bookTitle: book.story.title ?? "Their Storybook",
@@ -33,6 +34,18 @@ function createOrder({ userId, bookId, total }) {
         childName: book.child?.name || null,
         total: Number(total) || 0
     });
+
+    // Fire-and-forget: analyticsService catches its own errors, so this
+    // never blocks or fails order creation on an analytics hiccup.
+    analyticsService.sendPurchaseEvent({
+        clientId: gaClientId,
+        orderId: order.id,
+        total: order.total,
+        bookTitle: order.bookTitle,
+        storyTheme: order.storyTheme
+    });
+
+    return order;
 
 }
 
