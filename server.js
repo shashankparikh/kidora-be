@@ -26,6 +26,7 @@ const aboutRoutes = require("./routes/about");
 const refundPolicyRoutes = require("./routes/refundPolicy");
 const careersRoutes = require("./routes/careers");
 const contactRoutes = require("./routes/contact");
+const termsRoutes = require("./routes/terms");
 
 const app = express();
 
@@ -88,6 +89,7 @@ app.use("/", aboutRoutes);
 app.use("/", refundPolicyRoutes);
 app.use("/", careersRoutes);
 app.use("/", contactRoutes);
+app.use("/", termsRoutes);
 
 // Root route
 app.get("/", (req, res) => {
