@@ -72,8 +72,20 @@ function newsletterConfirmationEmail({ appUrl }) {
 
 }
 
+// Internal operator notification, not the branded consumer layout() above
+// — plain text is more useful for an ops alert than a marketing template.
+function dailySpendCapAlert({ cap, date }) {
+
+    return {
+        subject: `⚠️ OopsyInk: daily AI generation cap reached (${cap}/day)`,
+        html: `<p>The daily AI generation cap of <strong>${cap}</strong> calls was reached for <strong>${date}</strong> (UTC). Further character/story/illustration requests are being rejected until the cap resets at UTC midnight.</p><p>Raise AI_DAILY_GENERATION_CAP if this is expected traffic, or check for an abuse pattern if it isn't.</p>`
+    };
+
+}
+
 module.exports = {
     welcomeEmail,
     storyReadyEmail,
-    newsletterConfirmationEmail
+    newsletterConfirmationEmail,
+    dailySpendCapAlert
 };

@@ -1,11 +1,11 @@
 const orderService = require("../services/orderService");
 const reviewService = require("../services/reviewService");
 
-function listOrders(req, res) {
+async function listOrders(req, res) {
 
     const { status } = req.query;
 
-    const orders = orderService.listAllOrders({ status: status || undefined });
+    const orders = await orderService.listAllOrders({ status: status || undefined });
 
     res.json({
         success: true,

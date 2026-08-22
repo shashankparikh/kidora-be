@@ -1,4 +1,5 @@
 const storyService = require("../services/storyService");
+const { toPublicBook } = require("../utils/bookHelper");
 
 async function generateStory(req, res) {
 
@@ -14,7 +15,7 @@ async function generateStory(req, res) {
 
             message: "Story generated successfully.",
 
-            book
+            book: await toPublicBook(book)
 
         });
 

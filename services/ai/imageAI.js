@@ -174,16 +174,19 @@ No watermark.
             "base64"
         );
 
-    const illustrationUrl = await uploadBuffer(
+    // Store the bare S3 key, not the object's public URL — illustrations
+    // are private (see BACKLOG.md P0.1); the API layer signs a short-lived
+    // URL for this key at read time (see utils/bookHelper.toPublicBook).
+    const { key: illustrationKey } = await uploadBuffer(
         `books/${book.id}/pages/page-${page.page}.png`,
         generatedImageBuffer,
         "image/png"
     );
 
     console.log("Saved:");
-    console.log(illustrationUrl);
+    console.log(illustrationKey);
 
-    return illustrationUrl;
+    return illustrationKey;
 
 }
 

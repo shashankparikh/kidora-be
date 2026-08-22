@@ -1,5 +1,6 @@
 const { getBook, updateBook } = require("../utils/bookHelper");
 const aiService = require("./ai/aiService");
+const { assertWithinDailyCap } = require("./spendGuard");
 
 async function generateStory(bookId) {
 
@@ -19,6 +20,8 @@ async function generateStory(bookId) {
             "Character must be generated before creating a story."
         );
     }
+
+    assertWithinDailyCap();
 
     const story = await aiService.generateStory(book);
 

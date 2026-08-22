@@ -7,7 +7,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 
-const { getBook, updateBook } = require("../utils/bookHelper");
+const { getBook, updateBook, getBookFolder } = require("../utils/bookHelper");
 const { readImageBytes } = require("./imageStorage");
 
 
@@ -32,13 +32,7 @@ async function generatePDF(bookId) {
     );
 
 
-    const bookFolder = path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId
-    );
+    const bookFolder = getBookFolder(bookId);
 
 
     /*

@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const { GoogleGenAI } = require("@google/genai");
 const themeConfig = require("./themeConfig");
+const { assertValidStoryShape } = require("./storySchema");
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
@@ -262,7 +263,6 @@ Give the child a small challenge to overcome.
 
 If special notes mention a favorite animal, color, toy, hobby, or activity,
 include it naturally when it fits the adventure.
-include it naturally when it fits the adventure.
 
 ========================
 RETURN ONLY JSON
@@ -319,7 +319,19 @@ Do NOT wrap the response in code fences.
     text = text.replace(/```/g, "");
     text = text.trim();
 
-    return JSON.parse(text);
+    const story = JSON.parse(text);
+
+    // A malformed reply that fails JSON.parse above already throws and
+    // gets caught by aiService.js's fallback to the deterministic beach
+    // story — but a well-formed reply with the wrong shape (missing
+    // pages, wrong page count, empty text, ...) parses fine and would
+    // otherwise flow downstream unchecked until something much deeper
+    // (illustration generation, PDF layout) fails on it in a much less
+    // clear way. Throwing here routes that case through the same
+    // fallback (see BACKLOG.md P2.3).
+    assertValidStoryShape(story);
+
+    return story;
 }
 
 module.exports = {

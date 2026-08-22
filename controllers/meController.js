@@ -1,32 +1,20 @@
-const fs = require("fs");
-const path = require("path");
+const bookStore = require("../db/bookStore");
+const { toPublicBook } = require("../utils/bookHelper");
 
-const booksDir = path.join(__dirname, "..", "storage", "books");
-
-function listMyBooks(req, res) {
+// Was a full fs.readdirSync of every book on disk, parsing each one to
+// find the ones belonging to this user — didn't survive an ephemeral
+// filesystem and got slower with every book ever created (see
+// BACKLOG.md P1.1). Now a single indexed query.
+async function listMyBooks(req, res) {
 
     try {
 
-        if (!fs.existsSync(booksDir)) {
-            return res.json({ success: true, books: [] });
-        }
+        const books = bookStore.listBooksForUser(req.user.id);
 
-        const books = fs.readdirSync(booksDir)
-            .map((bookId) => {
-                const bookFile = path.join(booksDir, bookId, "book.json");
-                if (!fs.existsSync(bookFile)) {
-                    return null;
-                }
-                try {
-                    return JSON.parse(fs.readFileSync(bookFile, "utf8"));
-                } catch {
-                    return null;
-                }
-            })
-            .filter((book) => book && book.userId === req.user.id)
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        res.json({ success: true, books });
+        res.json({
+            success: true,
+            books: await Promise.all(books.map(toPublicBook))
+        });
 
     } catch (error) {
 

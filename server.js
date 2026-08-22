@@ -30,10 +30,21 @@ const termsRoutes = require("./routes/terms");
 
 const app = express();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-// kidora-admin runs as its own separate Vite app/origin — defaults to the
-// next port over from the customer site's 5173, overridable via env.
-const ADMIN_URL = process.env.ADMIN_URL || "http://localhost:5174";
+// No dev-URL fallback (see BACKLOG.md P2.2) — in production this used to
+// mean a missing env var silently allowed http://localhost:5173 instead
+// of the real site, while actually locking the real site out. Fail to
+// boot instead: a wrong CORS config should be loud, not a 500 in
+// production nobody notices until a customer reports it.
+const FRONTEND_URL = process.env.FRONTEND_URL;
+// kidora-admin runs as its own separate Vite app/origin.
+const ADMIN_URL = process.env.ADMIN_URL;
+
+if (!FRONTEND_URL || !ADMIN_URL) {
+    throw new Error(
+        "FRONTEND_URL and ADMIN_URL must both be set — no default CORS origin is allowed."
+    );
+}
+
 const ALLOWED_ORIGINS = [FRONTEND_URL, ADMIN_URL];
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
@@ -45,14 +56,6 @@ app.use(
     "/uploads",
     express.static(
         path.join(__dirname, "uploads")
-    )
-);
-
-// Serve generated storybook files
-app.use(
-    "/storage",
-    express.static(
-        path.join(__dirname, "storage")
     )
 );
 
@@ -103,6 +106,33 @@ app.get("/health", (req, res) => {
         message: "Backend is healthy",
         timestamp: new Date()
     });
+});
+
+// Anything that reaches here matched no route above — previously fell
+// through to Express's default HTML 404 page (see BACKLOG.md P1.3).
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Not found."
+    });
+});
+
+// Last-resort catch-all. Express 5 auto-forwards a rejected promise from
+// any async route handler here, and every synchronous throw/next(err)
+// lands here too — previously fell through to Express's default HTML
+// error page, which (a) isn't JSON the frontend can parse and (b) can
+// leak a stack trace to the response. Stack traces are logged
+// server-side, never sent to the client, regardless of environment.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+
+    console.error(err);
+
+    res.status(err.status || err.statusCode || 500).json({
+        success: false,
+        message: err.expose ? err.message : "Something went wrong. Please try again."
+    });
+
 });
 
 const PORT = process.env.PORT || 3000;

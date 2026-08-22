@@ -14,6 +14,8 @@ const {
     updateBook
 } = require("../utils/bookHelper");
 
+const { assertWithinDailyCap } = require("./spendGuard");
+
 
 function createReferenceFolders(bookId) {
 
@@ -93,6 +95,8 @@ async function generateCharacter(
     // -------------------------
     // AI PHOTO ANALYSIS
     // -------------------------
+
+    assertWithinDailyCap();
 
     const aiProfile =
         await analyzeChildPhoto(

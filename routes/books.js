@@ -4,10 +4,12 @@ const router = express.Router();
 
 const bookController = require("../controllers/bookController");
 const { requireAuth } = require("../middleware/auth");
+const { createBookLimiter } = require("../middleware/generationRateLimit");
 
 
 router.post(
     "/",
+    createBookLimiter,
     bookController.createBook
 );
 

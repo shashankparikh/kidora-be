@@ -35,7 +35,7 @@ async function main() {
 
         const buffer = fs.readFileSync(filePath);
 
-        const url = await uploadBuffer(
+        const { url } = await uploadBuffer(
             `assets/${filename}`,
             buffer,
             contentType

@@ -1,13 +1,47 @@
 const { getBook } = require("../utils/bookHelper");
 const orderStore = require("../db/orderStore");
 const analyticsService = require("./analyticsService");
+const { getSignedGetUrl } = require("./s3Service");
+const { isS3Key } = require("./imageStorage");
+const storyThemes = require("../data/storyThemes");
 
-// Base price lives on the frontend today (constants/pricing.ts) since
-// there's no payment gateway wired up yet to verify it server-side — see
-// checkout.paymentComingSoon. `total` is trusted from the client for now;
-// once real payment processing exists, computing/verifying the total here
-// (from the book + add-ons) should replace this.
-function createOrder({ userId, bookId, total, gaClientId }) {
+// The only server-side source of truth for what a book costs — see
+// BACKLOG.md P0.5. Never trust a `total` supplied by the client; this is
+// what closes the "anyone can create a total: 0 order" hole.
+function getThemePrice(themeId) {
+
+    const theme = storyThemes.find((candidate) => candidate.id === themeId);
+
+    if (!theme) {
+        throw new Error("This storybook's theme is missing or unrecognized; cannot price the order.");
+    }
+
+    return theme.price;
+
+}
+
+// orders.cover_image_url is a bare S3 key for any order placed after the
+// P0.1 privacy fix (see BACKLOG.md) — this signs it into a short-lived URL
+// right before the order is handed to a client, same pattern as
+// utils/bookHelper.toPublicBook. Older rows may still hold a plain public
+// URL from before that fix; those pass through unchanged.
+async function signOrder(order) {
+
+    if (!order || !isS3Key(order.coverImageUrl)) {
+        return order;
+    }
+
+    return {
+        ...order,
+        coverImageUrl: await getSignedGetUrl(order.coverImageUrl)
+    };
+
+}
+
+// There's no payment gateway wired up yet — see checkout.paymentComingSoon
+// on the frontend — so this doesn't verify a payment, only the price. Once
+// a gateway exists, this total is what should be charged/verified against.
+async function createOrder({ userId, bookId, gaClientId }) {
 
     const book = getBook(bookId);
 
@@ -32,7 +66,7 @@ function createOrder({ userId, bookId, total, gaClientId }) {
         coverImageUrl,
         storyTheme: book.theme || null,
         childName: book.child?.name || null,
-        total: Number(total) || 0
+        total: getThemePrice(book.theme)
     });
 
     // Fire-and-forget: analyticsService catches its own errors, so this
@@ -45,12 +79,13 @@ function createOrder({ userId, bookId, total, gaClientId }) {
         storyTheme: order.storyTheme
     });
 
-    return order;
+    return signOrder(order);
 
 }
 
-function listOrdersForUser(userId) {
-    return orderStore.listOrdersForUser(userId);
+async function listOrdersForUser(userId) {
+    const orders = orderStore.listOrdersForUser(userId);
+    return Promise.all(orders.map(signOrder));
 }
 
 function getOrderForUser(orderId, userId) {
@@ -69,15 +104,15 @@ function getOrderForUser(orderId, userId) {
 const DISPLAY_TO_DB_STATUS = { success: "delivered" };
 const DB_TO_DISPLAY_STATUS = { delivered: "success" };
 
-function listAllOrders({ status } = {}) {
+async function listAllOrders({ status } = {}) {
 
     const dbStatus = status ? (DISPLAY_TO_DB_STATUS[status] || status) : undefined;
     const orders = orderStore.listAllOrders({ status: dbStatus });
 
-    return orders.map((order) => ({
+    return Promise.all(orders.map(async (order) => signOrder({
         ...order,
         status: DB_TO_DISPLAY_STATUS[order.status] || order.status
-    }));
+    })));
 
 }
 

@@ -1,4 +1,5 @@
 const characterService = require("../services/characterService");
+const { toPublicBook } = require("../utils/bookHelper");
 
 async function generateCharacter(req, res) {
 
@@ -17,7 +18,7 @@ async function generateCharacter(req, res) {
 
             message: "Character generated successfully",
 
-            book
+            book: await toPublicBook(book)
 
         });
 

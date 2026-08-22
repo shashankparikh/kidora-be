@@ -1,18 +1,19 @@
 {
-  "name": "storybook-backend",
+  "name": "oopsyink-be",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "OopsyInk backend — personalized children's storybook generation, auth, orders, and CMS content API.",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Shashank Parikh",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",
+    "@aws-sdk/s3-request-presigner": "^3.1116.0",
     "@google/genai": "^2.11.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.1",

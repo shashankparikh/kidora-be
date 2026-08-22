@@ -1,4 +1,5 @@
 const illustrationService = require("../services/illustrationService");
+const { toPublicBook } = require("../utils/bookHelper");
 
 async function generateIllustrations(req, res) {
 
@@ -15,7 +16,7 @@ async function generateIllustrations(req, res) {
 
             message: "Illustrations generated successfully.",
 
-            book
+            book: await toPublicBook(book)
 
         });
 

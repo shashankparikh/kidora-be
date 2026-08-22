@@ -98,11 +98,46 @@ db.exec(`
         subscribed_at TEXT NOT NULL
     );
 
+    -- Book state — previously storage/books/<id>/book.json on local disk,
+    -- which doesn't survive a deploy on a container/serverless host and
+    -- can't be queried (see BACKLOG.md P1.1: meController used to
+    -- fs.readdirSync the whole directory on every request). Kept as a
+    -- JSON blob column rather than a full relational redesign since the
+    -- book shape is still moving — the win here is durability and
+    -- queryability, not normalization.
+    CREATE TABLE IF NOT EXISTS books (
+        id TEXT PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
+    -- One row per UTC calendar day. A hard ceiling on how many paid AI
+    -- calls (character analysis, story generation, each illustration
+    -- attempt) the app will make in a day, so an abuse loop against the
+    -- unauthenticated generation endpoints has a bounded worst case
+    -- instead of an open-ended one — see BACKLOG.md P0.2/P2.1. Persisted
+    -- (not in-memory) so a server restart mid-day can't reset the count.
+    CREATE TABLE IF NOT EXISTS ai_usage (
+        usage_date TEXT PRIMARY KEY,
+        call_count INTEGER NOT NULL DEFAULT 0,
+        alerted_at TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_auth_accounts_user_id ON auth_accounts(user_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
     CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
     CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
+    CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id);
 `);
+
+// One-time, idempotent: imports any pre-existing storage/books/*/book.json
+// files into the books table above, and adds a real FK from
+// orders.book_id -> books(id) (SQLite can't ALTER a FK onto an existing
+// table, so this recreates it — see db/migrateBooksTable.js). Safe to run
+// on every boot; it's a no-op once already applied.
+require("./migrateBooksTable")(db);
 
 module.exports = db;

@@ -1,20 +1,20 @@
 const bookService = require("../services/bookService");
+const { getBook, updateBook, toPublicBook } = require("../utils/bookHelper");
 
-function createBook(req, res) {
+async function createBook(req, res) {
 
     const book = bookService.createBook();
 
     res.json({
         success: true,
         message: "Storybook created successfully.",
-        ...book
+        ...book,
+        book: await toPublicBook(book.book)
     });
 
 }
 
-const { getBook, updateBook } = require("../utils/bookHelper");
-
-function getBookById(req, res) {
+async function getBookById(req, res) {
 
     try {
 
@@ -24,7 +24,7 @@ function getBookById(req, res) {
 
             success: true,
 
-            book
+            book: await toPublicBook(book)
 
         });
 
@@ -42,7 +42,7 @@ function getBookById(req, res) {
 
 }
 
-function claimBook(req, res) {
+async function claimBook(req, res) {
 
     try {
 
@@ -50,7 +50,7 @@ function claimBook(req, res) {
 
         res.json({
             success: true,
-            book
+            book: await toPublicBook(book)
         });
 
     } catch (error) {

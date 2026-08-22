@@ -3,6 +3,7 @@ const { generateIllustration } = require("./ai/imageAI");
 const userStore = require("../db/userStore");
 const { sendEmail } = require("./emailService");
 const { storyReadyEmail } = require("./emailTemplates");
+const { assertWithinDailyCap, DailyCapError } = require("./spendGuard");
 
 const APP_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
@@ -23,6 +24,13 @@ function sendStoryReadyEmail(book) {
     const user = userStore.getUserById(book.userId);
 
     if (!user) {
+        // book.userId is set but points at no real user row — a real data
+        // inconsistency (see BACKLOG.md P2.4: this used to fail silently,
+        // indistinguishable from the normal "book is still anonymous"
+        // case above).
+        console.warn(
+            `[illustrationService] Skipping story-ready email for book ${book.id}: userId ${book.userId} has no matching user.`
+        );
         return;
     }
 
@@ -69,6 +77,8 @@ async function generateIllustrations(bookId) {
                     `Generating Page ${page.page} - Attempt ${attempt}`
                 );
 
+                assertWithinDailyCap();
+
                 // Generate the illustration and upload it to S3
                 illustrationUrl = await generateIllustration(
                     book,
@@ -84,6 +94,10 @@ async function generateIllustrations(bookId) {
                 break;
 
             } catch (error) {
+
+                if (error instanceof DailyCapError) {
+                    throw error;
+                }
 
                 console.error(
                     `❌ Page ${page.page} failed on Attempt ${attempt}`
