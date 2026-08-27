@@ -16,7 +16,10 @@ services:
     runtime: node
     plan: free
     region: singapore
-    branch: main
+    # Deploying from the feature branch while this is validated in a real
+    # environment. Change to main once it merges — Render redeploys on every
+    # push to whatever branch is named here.
+    branch: feat/postgres-migration
     buildCommand: npm ci
     startCommand: npm start
 
