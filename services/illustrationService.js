@@ -15,13 +15,13 @@ function sleep(ms) {
 // Best-effort, fire-and-forget — only fires for books claimed by a logged
 // in user (anonymous books have no userId, so no one to email). Never
 // throws, so a missing user or failed send can't fail generation.
-function sendStoryReadyEmail(book) {
+async function sendStoryReadyEmail(book) {
 
     if (!book.userId) {
         return;
     }
 
-    const user = userStore.getUserById(book.userId);
+    const user = await userStore.getUserById(book.userId);
 
     if (!user) {
         // book.userId is set but points at no real user row — a real data
@@ -51,7 +51,7 @@ async function generateIllustrations(bookId) {
     console.log("Starting illustration generation...");
     console.log("==============================\n");
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
     if (!book.story || !book.story.pages) {
         throw new Error(
@@ -77,7 +77,7 @@ async function generateIllustrations(bookId) {
                     `Generating Page ${page.page} - Attempt ${attempt}`
                 );
 
-                assertWithinDailyCap();
+                await assertWithinDailyCap();
 
                 // Generate the illustration and upload it to S3
                 illustrationUrl = await generateIllustration(
@@ -139,7 +139,7 @@ async function generateIllustrations(bookId) {
 
     console.log("\nUpdating book.json...");
 
-    const updatedBook = updateBook(bookId, {
+    const updatedBook = await updateBook(bookId, {
 
         story: {
 
@@ -155,7 +155,16 @@ async function generateIllustrations(bookId) {
         "✅ All illustrations generated successfully."
     );
 
-    sendStoryReadyEmail(updatedBook);
+    // Best-effort, and explicitly so. This is now an async call (it reads
+    // the user row over the network), and the book is already finished and
+    // saved by this point. An unhandled rejection here would take the whole
+    // process down over a notification, discarding a run that succeeded.
+    await sendStoryReadyEmail(updatedBook).catch((err) => {
+        console.error(
+            `[illustrationService] story-ready email failed for book ${bookId}:`,
+            err.message
+        );
+    });
 
     return updatedBook;
 

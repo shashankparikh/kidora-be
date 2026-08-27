@@ -1,143 +1,90 @@
-const path = require("path");
-const fs = require("fs");
-const Database = require("better-sqlite3");
+const { Pool } = require("pg");
 
-const storageDir = path.join(__dirname, "..", "storage");
+// Replaces better-sqlite3. The storefront runs on a host with an ephemeral
+// filesystem, so a local .db file does not survive a restart or a deploy —
+// see db/migrations/001_init.sql for the schema and the type choices.
+//
+// better-sqlite3 was SYNCHRONOUS; every Postgres driver is not. So the store
+// modules below db/ are all async now, and so is anything that calls them.
+// The three helpers here are named after the better-sqlite3 calls they
+// replace (.get / .all / .run) to keep that port readable.
 
-if (!fs.existsSync(storageDir)) {
-    fs.mkdirSync(storageDir, { recursive: true });
+if (!process.env.DATABASE_URL) {
+    throw new Error(
+        "DATABASE_URL is not set. Copy it from the Supabase dashboard " +
+        "(Project Settings -> Database -> Connection string -> URI). Use the " +
+        "pooler host unless the platform gives you IPv6."
+    );
 }
 
-const db = new Database(path.join(storageDir, "oopsyink.db"));
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+    // Supabase terminates TLS with a certificate this process has no local
+    // root for. The connection is still encrypted; what is skipped is proving
+    // the host is who it says. Set DATABASE_CA to the project's certificate
+    // to verify properly.
+    ssl: process.env.DATABASE_CA
+        ? { ca: process.env.DATABASE_CA }
+        : { rejectUnauthorized: false },
 
-db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        first_name TEXT,
-        last_name TEXT,
-        mobile_number TEXT,
-        avatar_url TEXT,
-        password_hash TEXT,
-        role TEXT NOT NULL DEFAULT 'customer',
-        email_verified INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
+    // Free-tier Postgres allows few connections and this runs as a single
+    // container, so a small pool avoids "too many clients" under a burst.
+    max: Number(process.env.DATABASE_POOL_MAX || 5),
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000
+});
 
-    CREATE TABLE IF NOT EXISTS auth_accounts (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        provider TEXT NOT NULL,
-        provider_account_id TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        UNIQUE(provider, provider_account_id)
-    );
+// An idle client dropped by the server reaches us as an error event, not a
+// rejected query. Without this listener Node treats it as unhandled and
+// exits, taking the whole service down for something the pool recovers from
+// on its own.
+pool.on("error", (err) => {
+    console.error("Idle Postgres client error:", err.message);
+});
 
-    CREATE TABLE IF NOT EXISTS refresh_sessions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        refresh_token_hash TEXT NOT NULL,
-        user_agent TEXT,
-        ip_address TEXT,
-        expires_at TEXT NOT NULL,
-        revoked_at TEXT,
-        created_at TEXT NOT NULL
-    );
+async function all(sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows;
+}
 
-    -- One row per completed purchase. Digital delivery is instant (no
-    -- shipping/payment gateway wired up yet — see checkout.paymentComingSoon
-    -- on the frontend), so orders are created already "delivered": the
-    -- book is readable the moment the order exists. status is kept as a
-    -- free-form column rather than an enum so a real fulfillment pipeline
-    -- (e.g. a physical hardcover add-on) can introduce intermediate states
-    -- like "processing" later without a schema change.
-    CREATE TABLE IF NOT EXISTS orders (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        book_id TEXT NOT NULL,
-        book_title TEXT,
-        cover_image_url TEXT,
-        story_theme TEXT,
-        child_name TEXT,
-        status TEXT NOT NULL DEFAULT 'delivered',
-        total REAL NOT NULL DEFAULT 0,
-        placed_at TEXT NOT NULL,
-        delivered_at TEXT,
-        updated_at TEXT NOT NULL
-    );
+async function get(sql, params = []) {
+    const result = await pool.query(sql, params);
+    return result.rows[0];
+}
 
-    -- One review per order (UNIQUE order_id), gated behind an actual
-    -- delivered purchase rather than open to anyone. Starts "pending" and
-    -- only counts toward the public summary / testimonials feed once
-    -- approved — moderation-before-publish given the audience is parents
-    -- and children.
-    CREATE TABLE IF NOT EXISTS reviews (
-        id TEXT PRIMARY KEY,
-        order_id TEXT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        book_id TEXT NOT NULL,
-        child_name TEXT,
-        story_theme TEXT,
-        rating INTEGER NOT NULL,
-        title TEXT,
-        comment TEXT,
-        status TEXT NOT NULL DEFAULT 'pending',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
+async function run(sql, params = []) {
+    const result = await pool.query(sql, params);
+    return { changes: result.rowCount };
+}
 
-    -- Marketing opt-in, separate from the users table since a visitor can
-    -- subscribe without ever creating an account.
-    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        subscribed_at TEXT NOT NULL
-    );
+// SQLite gave us atomicity for free inside a synchronous function. Postgres
+// does not, so read-modify-write sequences (bookStore.mutateBook is the one
+// that matters) have to hold a single client across the whole sequence.
+async function tx(fn) {
 
-    -- Book state — previously storage/books/<id>/book.json on local disk,
-    -- which doesn't survive a deploy on a container/serverless host and
-    -- can't be queried (see BACKLOG.md P1.1: meController used to
-    -- fs.readdirSync the whole directory on every request). Kept as a
-    -- JSON blob column rather than a full relational redesign since the
-    -- book shape is still moving — the win here is durability and
-    -- queryability, not normalization.
-    CREATE TABLE IF NOT EXISTS books (
-        id TEXT PRIMARY KEY,
-        user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-        data TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
+    const client = await pool.connect();
 
-    -- One row per UTC calendar day. A hard ceiling on how many paid AI
-    -- calls (character analysis, story generation, each illustration
-    -- attempt) the app will make in a day, so an abuse loop against the
-    -- unauthenticated generation endpoints has a bounded worst case
-    -- instead of an open-ended one — see BACKLOG.md P0.2/P2.1. Persisted
-    -- (not in-memory) so a server restart mid-day can't reset the count.
-    CREATE TABLE IF NOT EXISTS ai_usage (
-        usage_date TEXT PRIMARY KEY,
-        call_count INTEGER NOT NULL DEFAULT 0,
-        alerted_at TEXT
-    );
+    try {
 
-    CREATE INDEX IF NOT EXISTS idx_auth_accounts_user_id ON auth_accounts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
-    CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
-    CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
-    CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id);
-`);
+        await client.query("BEGIN");
 
-// One-time, idempotent: imports any pre-existing storage/books/*/book.json
-// files into the books table above, and adds a real FK from
-// orders.book_id -> books(id) (SQLite can't ALTER a FK onto an existing
-// table, so this recreates it — see db/migrateBooksTable.js). Safe to run
-// on every boot; it's a no-op once already applied.
-require("./migrateBooksTable")(db);
+        const result = await fn(client);
 
-module.exports = db;
+        await client.query("COMMIT");
+
+        return result;
+
+    } catch (err) {
+
+        await client.query("ROLLBACK").catch(() => {});
+
+        throw err;
+
+    } finally {
+        client.release();
+    }
+
+}
+
+module.exports = { pool, all, get, run, tx };

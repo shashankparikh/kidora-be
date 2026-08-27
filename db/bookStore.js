@@ -1,27 +1,23 @@
-const db = require("./database");
+const { all, get, run, tx } = require("./database");
 
 function rowToBook(row) {
     return row ? JSON.parse(row.data) : null;
 }
 
-function getBook(id) {
-    const row = db.prepare("SELECT data FROM books WHERE id = ?").get(id);
+async function getBook(id) {
+    const row = await get("SELECT data FROM books WHERE id = $1", [id]);
     return rowToBook(row);
 }
 
-function createBook(book) {
+async function createBook(book) {
 
     const now = new Date().toISOString();
 
-    db.prepare(
+    await run(
         `INSERT INTO books (id, user_id, data, created_at, updated_at)
-         VALUES (@id, @userId, @data, @now, @now)`
-    ).run({
-        id: book.id,
-        userId: book.userId || null,
-        data: JSON.stringify(book),
-        now
-    });
+         VALUES ($1, $2, $3, $4, $4)`,
+        [book.id, book.userId || null, JSON.stringify(book), now]
+    );
 
     return book;
 
@@ -30,53 +26,82 @@ function createBook(book) {
 // Full replace of the JSON blob, not a partial column update — the merge
 // logic (what fields survive from the old book) lives in
 // utils/bookHelper.updateBook, same as it did when this was a file write.
-function updateBook(id, book) {
+async function updateBook(id, book) {
 
-    db.prepare(
-        `UPDATE books SET data = @data, user_id = @userId, updated_at = @updatedAt WHERE id = @id`
-    ).run({
-        id,
-        userId: book.userId || null,
-        data: JSON.stringify(book),
-        updatedAt: book.updatedAt || new Date().toISOString()
-    });
+    await run(
+        `UPDATE books SET data = $2, user_id = $3, updated_at = $4 WHERE id = $1`,
+        [
+            id,
+            JSON.stringify(book),
+            book.userId || null,
+            book.updatedAt || new Date().toISOString()
+        ]
+    );
 
     return book;
 
 }
 
-function listBooksForUser(userId) {
+async function listBooksForUser(userId) {
 
-    const rows = db.prepare(
-        "SELECT data FROM books WHERE user_id = ? ORDER BY updated_at DESC"
-    ).all(userId);
+    const rows = await all(
+        "SELECT data FROM books WHERE user_id = $1 ORDER BY updated_at DESC",
+        [userId]
+    );
 
     return rows.map(rowToBook);
 
 }
 
-// Reads and writes a book inside a single SQLite transaction so a
-// concurrent mutateBook call on the same id can't interleave and clobber
-// part of the update — the race BACKLOG.md P1.1 flagged (a multi-minute
-// illustration generation holding stale state in a JS variable and
-// blindly overwriting on completion). `mutator` receives the current book
-// and returns the next one; throwing inside it rolls back the whole
-// transaction, including the read.
-const mutateBook = db.transaction((id, mutator) => {
+// Reads and writes a book inside one transaction so a concurrent mutateBook
+// on the same id can't interleave and clobber part of the update — the race
+// BACKLOG.md P1.1 flagged (a multi-minute illustration generation holding
+// stale state in a JS variable and blindly overwriting on completion).
+//
+// FOR UPDATE is doing the real work and is NOT optional here. Under
+// better-sqlite3 the surrounding db.transaction() was enough on its own,
+// because SQLite permits a single writer and serialises them globally.
+// Postgres runs transactions concurrently, so without the row lock both
+// callers would read the same row, merge against the same base, and the
+// later COMMIT would silently discard the earlier one — the exact race this
+// function exists to prevent. FOR UPDATE makes the second caller wait for
+// the first to commit, so it merges against fresh state.
+//
+// `mutator` receives the current book and returns the next one; throwing
+// inside it rolls back the whole transaction, including the read.
+async function mutateBook(id, mutator) {
 
-    const current = getBook(id);
+    return tx(async (client) => {
 
-    if (!current) {
-        throw new Error("Book not found");
-    }
+        const result = await client.query(
+            "SELECT data FROM books WHERE id = $1 FOR UPDATE",
+            [id]
+        );
 
-    const next = mutator(current);
+        const current = rowToBook(result.rows[0]);
 
-    updateBook(id, next);
+        if (!current) {
+            throw new Error("Book not found");
+        }
 
-    return next;
+        const next = await mutator(current);
 
-});
+        await client.query(
+            `UPDATE books SET data = $2, user_id = $3, updated_at = $4
+             WHERE id = $1`,
+            [
+                id,
+                JSON.stringify(next),
+                next.userId || null,
+                next.updatedAt || new Date().toISOString()
+            ]
+        );
+
+        return next;
+
+    });
+
+}
 
 module.exports = {
     getBook,

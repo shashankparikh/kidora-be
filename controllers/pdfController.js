@@ -1,15 +1,13 @@
-const path = require("path");
-const fs = require("fs");
-
 const pdfService = require("../services/pdfService");
-const { getBook, getBookFolder } = require("../utils/bookHelper");
+const { getBook } = require("../utils/bookHelper");
+const { getObjectBuffer } = require("../services/s3Service");
 
 
-function downloadPdf(req, res) {
+async function downloadPdf(req, res) {
 
     try {
 
-        const book = getBook(req.params.bookId);
+        const book = await getBook(req.params.bookId);
 
         if (!book.pdf) {
             return res.status(404).json({
@@ -18,19 +16,18 @@ function downloadPdf(req, res) {
             });
         }
 
-        const pdfPath = path.join(
-            getBookFolder(req.params.bookId),
-            book.pdf
+        // book.pdf is an S3 key (see services/pdfService.js). Streamed
+        // through this endpoint using our own credentials rather than
+        // handed out as a signed S3 link: the download stays on our domain,
+        // and the object never needs to be reachable directly.
+        const pdfBytes = await getObjectBuffer(book.pdf);
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+            "Content-Disposition",
+            'attachment; filename="storybook.pdf"'
         );
-
-        if (!fs.existsSync(pdfPath)) {
-            return res.status(404).json({
-                success: false,
-                message: "PDF not found."
-            });
-        }
-
-        res.download(pdfPath, "storybook.pdf");
+        res.send(pdfBytes);
 
     } catch (error) {
 

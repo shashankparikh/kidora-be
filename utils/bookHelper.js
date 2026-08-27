@@ -1,4 +1,3 @@
-const path = require("path");
 
 const bookStore = require("../db/bookStore");
 const { getSignedGetUrl } = require("../services/s3Service");
@@ -10,30 +9,13 @@ const { isS3Key } = require("../services/imageStorage");
 // path below, so the same path-traversal guard applies.
 const SAFE_BOOK_ID = /^[a-zA-Z0-9_-]+$/;
 
-// Physical folder used only for the generated PDF (services/pdfService.js)
-// — book metadata itself is no longer file-backed.
-function getBookFolder(bookId) {
+async function getBook(bookId) {
 
     if (!SAFE_BOOK_ID.test(bookId || "")) {
         throw new Error("Book not found");
     }
 
-    return path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId
-    );
-}
-
-function getBook(bookId) {
-
-    if (!SAFE_BOOK_ID.test(bookId || "")) {
-        throw new Error("Book not found");
-    }
-
-    const book = bookStore.getBook(bookId);
+    const book = await bookStore.getBook(bookId);
 
     if (!book) {
         throw new Error("Book not found");
@@ -77,13 +59,13 @@ function mergeBook(book, updates) {
 // Read-merge-write happens inside one SQLite transaction (see
 // db/bookStore.mutateBook) so a concurrent update on the same book can't
 // interleave and lose part of either write.
-function updateBook(bookId, updates) {
+async function updateBook(bookId, updates) {
 
     if (!SAFE_BOOK_ID.test(bookId || "")) {
         throw new Error("Book not found");
     }
 
-    return bookStore.mutateBook(
+    return await bookStore.mutateBook(
         bookId,
         (book) => mergeBook(book, updates)
     );
@@ -133,7 +115,6 @@ async function toPublicBook(book) {
 }
 
 module.exports = {
-    getBookFolder,
     getBook,
     updateBook,
     toPublicBook

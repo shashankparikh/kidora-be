@@ -48,9 +48,9 @@ async function listOrders(req, res) {
 
 }
 
-function getReviewEligibility(req, res) {
+async function getReviewEligibility(req, res) {
 
-    const eligibility = reviewService.getEligibility(req.params.orderId, req.user.id);
+    const eligibility = await reviewService.getEligibility(req.params.orderId, req.user.id);
 
     res.json({
         success: true,

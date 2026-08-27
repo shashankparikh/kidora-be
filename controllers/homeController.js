@@ -1,9 +1,9 @@
 const homeService = require("../services/homeService");
 
 
-function getHome(req, res) {
+async function getHome(req, res) {
 
-    const modules = homeService.getHomeWidgets();
+    const modules = await homeService.getHomeWidgets();
 
     res.json({
         success: true,

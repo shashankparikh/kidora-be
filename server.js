@@ -51,14 +51,6 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Serve uploaded files
-app.use(
-    "/uploads",
-    express.static(
-        path.join(__dirname, "uploads")
-    )
-);
-
 // Serve CMS-style static assets (hero art, widget images, ...). Stands in
 // for an S3 bucket during local dev — every img_url built by homeService
 // points here, so switching to real S3 later is just swapping the base

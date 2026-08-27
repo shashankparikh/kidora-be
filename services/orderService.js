@@ -43,7 +43,7 @@ async function signOrder(order) {
 // a gateway exists, this total is what should be charged/verified against.
 async function createOrder({ userId, bookId, gaClientId }) {
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
     if (!book) {
         throw new Error("Book not found.");
@@ -59,7 +59,7 @@ async function createOrder({ userId, bookId, gaClientId }) {
 
     const coverImageUrl = book.story.pages?.[0]?.illustration ?? null;
 
-    const order = orderStore.createOrder({
+    const order = await orderStore.createOrder({
         userId,
         bookId,
         bookTitle: book.story.title ?? "Their Storybook",
@@ -84,12 +84,12 @@ async function createOrder({ userId, bookId, gaClientId }) {
 }
 
 async function listOrdersForUser(userId) {
-    const orders = orderStore.listOrdersForUser(userId);
+    const orders = await orderStore.listOrdersForUser(userId);
     return Promise.all(orders.map(signOrder));
 }
 
-function getOrderForUser(orderId, userId) {
-    return orderStore.getOrderByIdForUser(orderId, userId);
+async function getOrderForUser(orderId, userId) {
+    return await orderStore.getOrderByIdForUser(orderId, userId);
 }
 
 // Admin dashboard deals in "pending / success / rejected" — there's no
@@ -107,7 +107,7 @@ const DB_TO_DISPLAY_STATUS = { delivered: "success" };
 async function listAllOrders({ status } = {}) {
 
     const dbStatus = status ? (DISPLAY_TO_DB_STATUS[status] || status) : undefined;
-    const orders = orderStore.listAllOrders({ status: dbStatus });
+    const orders = await orderStore.listAllOrders({ status: dbStatus });
 
     return Promise.all(orders.map(async (order) => signOrder({
         ...order,

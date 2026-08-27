@@ -13,7 +13,7 @@ async function subscribe(email) {
         throw new Error("Please enter a valid email address.");
     }
 
-    const result = newsletterStore.subscribe(trimmed);
+    const result = await newsletterStore.subscribe(trimmed);
 
     const { subject, html } = newsletterConfirmationEmail({ appUrl: APP_URL });
 

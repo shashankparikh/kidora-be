@@ -38,9 +38,9 @@ const FALLBACK_REVIEWS = [
     }
 ];
 
-function getEligibility(orderId, userId) {
+async function getEligibility(orderId, userId) {
 
-    const order = orderStore.getOrderByIdForUser(orderId, userId);
+    const order = await orderStore.getOrderByIdForUser(orderId, userId);
 
     if (!order) {
         return { eligible: false, reason: "not_found" };
@@ -58,13 +58,13 @@ function getEligibility(orderId, userId) {
 
 }
 
-function createReview({ orderId, userId, rating, title, comment }) {
+async function createReview({ orderId, userId, rating, title, comment }) {
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
         throw new Error("Rating must be a whole number from 1 to 5.");
     }
 
-    const order = orderStore.getOrderByIdForUser(orderId, userId);
+    const order = await orderStore.getOrderByIdForUser(orderId, userId);
 
     if (!order) {
         throw new Error("Order not found.");
@@ -78,7 +78,7 @@ function createReview({ orderId, userId, rating, title, comment }) {
         throw new Error("This order has already been reviewed.");
     }
 
-    return reviewStore.createReview({
+    return await reviewStore.createReview({
         orderId,
         userId,
         bookId: order.bookId,
@@ -97,9 +97,9 @@ function createReview({ orderId, userId, rating, title, comment }) {
 // least MIN_REAL_REVIEWS approved yet.
 const MIN_REAL_REVIEWS = 3;
 
-function getFeaturedReviews(limit = 6) {
+async function getFeaturedReviews(limit = 6) {
 
-    const approved = reviewStore.listApprovedReviews({ limit });
+    const approved = await reviewStore.listApprovedReviews({ limit });
 
     if (approved.length < MIN_REAL_REVIEWS) {
         return FALLBACK_REVIEWS.slice(0, limit);
@@ -118,9 +118,9 @@ function getFeaturedReviews(limit = 6) {
 
 }
 
-function getSummary() {
+async function getSummary() {
 
-    const summary = reviewStore.getSummary();
+    const summary = await reviewStore.getSummary();
 
     if (summary.count < MIN_REAL_REVIEWS) {
         // Not enough real data yet to show an honest aggregate — omit it
@@ -132,23 +132,23 @@ function getSummary() {
 
 }
 
-function listPublicReviews({ theme, limit } = {}) {
-    return reviewStore.listApprovedReviews({ theme, limit });
+async function listPublicReviews({ theme, limit } = {}) {
+    return await reviewStore.listApprovedReviews({ theme, limit });
 }
 
 // Admin dashboard: every review, optionally filtered by moderation status
 // (pending / approved / rejected).
-function listAllReviews({ status } = {}) {
-    return reviewStore.listAllReviews({ status });
+async function listAllReviews({ status } = {}) {
+    return await reviewStore.listAllReviews({ status });
 }
 
-function moderateReview(id, status) {
+async function moderateReview(id, status) {
 
     if (!["approved", "rejected"].includes(status)) {
         throw new Error("Status must be 'approved' or 'rejected'.");
     }
 
-    return reviewStore.setReviewStatus(id, status);
+    return await reviewStore.setReviewStatus(id, status);
 
 }
 

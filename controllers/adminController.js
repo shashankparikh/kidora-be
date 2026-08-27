@@ -14,11 +14,11 @@ async function listOrders(req, res) {
 
 }
 
-function listReviews(req, res) {
+async function listReviews(req, res) {
 
     const { status } = req.query;
 
-    const reviews = reviewService.listAllReviews({ status: status || undefined });
+    const reviews = await reviewService.listAllReviews({ status: status || undefined });
 
     res.json({
         success: true,
@@ -27,11 +27,11 @@ function listReviews(req, res) {
 
 }
 
-function moderateReview(req, res) {
+async function moderateReview(req, res) {
 
     try {
 
-        const review = reviewService.moderateReview(req.params.reviewId, req.body.status);
+        const review = await reviewService.moderateReview(req.params.reviewId, req.body.status);
 
         res.json({
             success: true,

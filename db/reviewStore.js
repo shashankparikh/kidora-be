@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const db = require("./database");
+const { all, get, run } = require("./database");
 
 function nowIso() {
     return new Date().toISOString();
@@ -44,30 +44,35 @@ function toPublicReview(row) {
 
 }
 
-function createReview({ orderId, userId, bookId, childName, storyTheme, rating, title, comment }) {
+async function createReview({
+    orderId, userId, bookId, childName, storyTheme, rating, title, comment
+}) {
 
     const id = `rev_${crypto.randomUUID()}`;
     const timestamp = nowIso();
 
-    db.prepare(
+    await run(
         `INSERT INTO reviews
-            (id, order_id, user_id, book_id, child_name, story_theme, rating, title, comment, status, created_at, updated_at)
+            (id, order_id, user_id, book_id, child_name, story_theme, rating,
+             title, comment, status, created_at, updated_at)
          VALUES
-            (@id, @orderId, @userId, @bookId, @childName, @storyTheme, @rating, @title, @comment, 'pending', @createdAt, @updatedAt)`
-    ).run({
-        id,
-        orderId,
-        userId,
-        bookId,
-        childName: childName ?? null,
-        storyTheme: storyTheme ?? null,
-        rating,
-        title: title ?? null,
-        comment: comment ?? null,
-        createdAt: timestamp,
-        updatedAt: timestamp
-    });
+            ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $10)`,
+        [
+            id,
+            orderId,
+            userId,
+            bookId,
+            childName ?? null,
+            storyTheme ?? null,
+            rating,
+            title ?? null,
+            comment ?? null,
+            timestamp
+        ]
+    );
 
+    // Re-read rather than RETURNING *: the public shape joins the author's
+    // name off the users table, which the INSERT has no access to.
     return getReviewById(id);
 
 }
@@ -78,44 +83,57 @@ const SELECT_WITH_AUTHOR = `
     JOIN users u ON u.id = r.user_id
 `;
 
-function getReviewById(id) {
-    const row = db.prepare(`${SELECT_WITH_AUTHOR} WHERE r.id = ?`).get(id);
+async function getReviewById(id) {
+    const row = await get(`${SELECT_WITH_AUTHOR} WHERE r.id = $1`, [id]);
     return toPublicReview(row);
 }
 
-function getReviewByOrderId(orderId) {
-    const row = db.prepare(`${SELECT_WITH_AUTHOR} WHERE r.order_id = ?`).get(orderId);
+async function getReviewByOrderId(orderId) {
+    const row = await get(`${SELECT_WITH_AUTHOR} WHERE r.order_id = $1`, [orderId]);
     return toPublicReview(row);
 }
 
-function listApprovedReviews({ theme, limit } = {}) {
+async function listApprovedReviews({ theme, limit } = {}) {
 
     const conditions = ["r.status = 'approved'"];
-    const params = {};
+    const params = [];
 
     if (theme) {
-        conditions.push("r.story_theme = @theme");
-        params.theme = theme;
+        params.push(theme);
+        conditions.push(`r.story_theme = $${params.length}`);
     }
 
-    let query = `${SELECT_WITH_AUTHOR} WHERE ${conditions.join(" AND ")} ORDER BY r.created_at DESC`;
+    let query =
+        `${SELECT_WITH_AUTHOR} WHERE ${conditions.join(" AND ")} ` +
+        "ORDER BY r.created_at DESC";
 
     if (limit) {
-        query += " LIMIT @limit";
-        params.limit = limit;
+        params.push(limit);
+        query += ` LIMIT $${params.length}`;
     }
 
-    return db.prepare(query).all(params).map(toPublicReview);
+    const rows = await all(query, params);
+
+    return rows.map(toPublicReview);
 
 }
 
 // 1-5 breakdown + average, approved reviews only — used for the summary
 // block above the review grid (e.g. "4.9, based on 312 reviews").
-function getSummary() {
+async function getSummary() {
 
-    const rows = db.prepare(
-        "SELECT rating, COUNT(*) as count FROM reviews WHERE status = 'approved' GROUP BY rating"
-    ).all();
+    // COUNT(*) is bigint, and node-postgres returns bigint as a STRING so
+    // that values beyond Number.MAX_SAFE_INTEGER survive the trip. Without
+    // the ::int cast, `totalScore += row.rating * row.count` still works
+    // (multiplication coerces) but `totalCount += row.count` concatenates —
+    // "0" + "5" + "3" — and the average comes out as a fraction of a
+    // nonsense number. Casting in SQL fixes it once, at the source.
+    const rows = await all(
+        `SELECT rating, COUNT(*)::int AS count
+         FROM reviews
+         WHERE status = 'approved'
+         GROUP BY rating`
+    );
 
     const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     let totalCount = 0;
@@ -128,7 +146,10 @@ function getSummary() {
     }
 
     return {
-        average: totalCount > 0 ? Math.round((totalScore / totalCount) * 10) / 10 : 0,
+        average:
+            totalCount > 0
+                ? Math.round((totalScore / totalCount) * 10) / 10
+                : 0,
         count: totalCount,
         breakdown
     };
@@ -139,28 +160,31 @@ function getSummary() {
 // by status (pending / approved / rejected). Superset of the old
 // listPendingReviews — the admin moderation screen wants to see all
 // three buckets, not just the pending queue.
-function listAllReviews({ status } = {}) {
+async function listAllReviews({ status } = {}) {
 
     const conditions = [];
-    const params = {};
+    const params = [];
 
     if (status) {
-        conditions.push("r.status = @status");
-        params.status = status;
+        params.push(status);
+        conditions.push(`r.status = $${params.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const query = `${SELECT_WITH_AUTHOR} ${where} ORDER BY r.created_at DESC`;
 
-    return db.prepare(query).all(params).map(toPublicReview);
+    const rows = await all(query, params);
+
+    return rows.map(toPublicReview);
 
 }
 
-function setReviewStatus(id, status) {
+async function setReviewStatus(id, status) {
 
-    db.prepare(
-        "UPDATE reviews SET status = ?, updated_at = ? WHERE id = ?"
-    ).run(status, nowIso(), id);
+    await run(
+        "UPDATE reviews SET status = $1, updated_at = $2 WHERE id = $3",
+        [status, nowIso(), id]
+    );
 
     return getReviewById(id);
 

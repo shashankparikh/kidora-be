@@ -4,7 +4,7 @@ const { assertWithinDailyCap } = require("./spendGuard");
 
 async function generateStory(bookId) {
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
     if (!book) {
         throw new Error("Book not found.");
@@ -21,11 +21,11 @@ async function generateStory(bookId) {
         );
     }
 
-    assertWithinDailyCap();
+    await assertWithinDailyCap();
 
     const story = await aiService.generateStory(book);
 
-    return updateBook(bookId, {
+    return await updateBook(bookId, {
         status: "STORY_GENERATED",
         story
     });

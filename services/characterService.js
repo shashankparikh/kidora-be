@@ -1,6 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-
 const {
     analyzeChildPhoto
 } = require("./ai/characterVisionService");
@@ -17,39 +14,6 @@ const {
 const { assertWithinDailyCap } = require("./spendGuard");
 
 
-function createReferenceFolders(bookId) {
-
-    const characterFolder = path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId,
-        "character"
-    );
-
-    const pagesFolder = path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId,
-        "pages"
-    );
-
-    fs.mkdirSync(
-        characterFolder,
-        { recursive: true }
-    );
-
-    fs.mkdirSync(
-        pagesFolder,
-        { recursive: true }
-    );
-
-}
-
-
 async function generateCharacter(
     bookId,
     data = {}
@@ -59,7 +23,7 @@ async function generateCharacter(
     // LOAD BOOK
     // -------------------------
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
 
     // -------------------------
@@ -96,7 +60,7 @@ async function generateCharacter(
     // AI PHOTO ANALYSIS
     // -------------------------
 
-    assertWithinDailyCap();
+    await assertWithinDailyCap();
 
     const aiProfile =
         await analyzeChildPhoto(
@@ -111,17 +75,6 @@ async function generateCharacter(
     console.log(
         aiProfile
     );
-
-
-    // -------------------------
-    // CREATE FOLDERS
-    // -------------------------
-
-    createReferenceFolders(
-        bookId
-    );
-
-
     // -------------------------
     // BUILD CHARACTER PROFILE
     // -------------------------
@@ -217,7 +170,7 @@ async function generateCharacter(
     // -------------------------
 
     const updatedBook =
-        updateBook(
+        await updateBook(
             bookId,
             {
 

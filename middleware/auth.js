@@ -1,7 +1,7 @@
 const { verifyAccessToken } = require("../utils/tokens");
 const userStore = require("../db/userStore");
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
 
     const header = req.get("authorization") || "";
     const [scheme, token] = header.split(" ");
@@ -13,7 +13,7 @@ function requireAuth(req, res, next) {
     try {
 
         const claims = verifyAccessToken(token);
-        const userRow = userStore.getUserById(claims.sub);
+        const userRow = await userStore.getUserById(claims.sub);
 
         if (!userRow) {
             return res.status(401).json({ success: false, message: "Not authenticated." });
@@ -29,9 +29,9 @@ function requireAuth(req, res, next) {
 
 }
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
 
-    requireAuth(req, res, () => {
+    await requireAuth(req, res, () => {
         if (req.user.role !== "admin") {
             return res.status(403).json({ success: false, message: "Admins only." });
         }

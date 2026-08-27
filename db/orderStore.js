@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const db = require("./database");
+const { all, get, run } = require("./database");
 
 function nowIso() {
     return new Date().toISOString();
@@ -23,6 +23,9 @@ function toPublicOrder(row) {
         total: row.total,
         placedAt: row.placed_at,
         deliveredAt: row.delivered_at,
+
+        // SQLite returned 0/1 for EXISTS; Postgres returns a real boolean.
+        // Boolean() normalises both, so this mapping is unchanged.
         hasReview: Boolean(row.has_review)
     };
 
@@ -38,16 +41,17 @@ function toAdminOrder(row) {
 
     return {
         ...base,
-        customerName: [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+        customerName:
+            [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
         customerEmail: row.email || null
     };
 
 }
 
 // Orders are always created "delivered" — see the comment on the orders
-// table in database.js for why. deliveredAt mirrors placedAt for the
-// same reason.
-function createOrder({
+// table in db/migrations/001_init.sql for why. deliveredAt mirrors placedAt
+// for the same reason.
+async function createOrder({
     userId,
     bookId,
     bookTitle,
@@ -60,25 +64,27 @@ function createOrder({
     const id = `ord_${crypto.randomUUID()}`;
     const timestamp = nowIso();
 
-    db.prepare(
+    await run(
         `INSERT INTO orders
-            (id, user_id, book_id, book_title, cover_image_url, story_theme, child_name, status, total, placed_at, delivered_at, updated_at)
+            (id, user_id, book_id, book_title, cover_image_url, story_theme,
+             child_name, status, total, placed_at, delivered_at, updated_at)
          VALUES
-            (@id, @userId, @bookId, @bookTitle, @coverImageUrl, @storyTheme, @childName, 'delivered', @total, @placedAt, @deliveredAt, @updatedAt)`
-    ).run({
-        id,
-        userId,
-        bookId,
-        bookTitle: bookTitle ?? null,
-        coverImageUrl: coverImageUrl ?? null,
-        storyTheme: storyTheme ?? null,
-        childName: childName ?? null,
-        total,
-        placedAt: timestamp,
-        deliveredAt: timestamp,
-        updatedAt: timestamp
-    });
+            ($1, $2, $3, $4, $5, $6, $7, 'delivered', $8, $9, $9, $9)`,
+        [
+            id,
+            userId,
+            bookId,
+            bookTitle ?? null,
+            coverImageUrl ?? null,
+            storyTheme ?? null,
+            childName ?? null,
+            total,
+            timestamp
+        ]
+    );
 
+    // Deliberately re-read rather than RETURNING *: the public shape needs
+    // the has_review flag, which the INSERT cannot compute.
     return getOrderById(id);
 
 }
@@ -108,41 +114,46 @@ const SELECT_ADMIN = `
     JOIN users u ON u.id = o.user_id
 `;
 
-function getOrderById(id) {
-    const row = db.prepare(`${SELECT_WITH_REVIEW_FLAG} WHERE o.id = ?`).get(id);
+async function getOrderById(id) {
+    const row = await get(`${SELECT_WITH_REVIEW_FLAG} WHERE o.id = $1`, [id]);
     return toPublicOrder(row);
 }
 
-function getOrderByIdForUser(id, userId) {
-    const row = db.prepare(`${SELECT_WITH_REVIEW_FLAG} WHERE o.id = ? AND o.user_id = ?`).get(id, userId);
+async function getOrderByIdForUser(id, userId) {
+    const row = await get(
+        `${SELECT_WITH_REVIEW_FLAG} WHERE o.id = $1 AND o.user_id = $2`,
+        [id, userId]
+    );
     return toPublicOrder(row);
 }
 
-function listOrdersForUser(userId) {
-    const rows = db.prepare(
-        `${SELECT_WITH_REVIEW_FLAG} WHERE o.user_id = ? ORDER BY o.placed_at DESC`
-    ).all(userId);
+async function listOrdersForUser(userId) {
+    const rows = await all(
+        `${SELECT_WITH_REVIEW_FLAG} WHERE o.user_id = $1 ORDER BY o.placed_at DESC`,
+        [userId]
+    );
     return rows.map(toPublicOrder);
 }
 
 // Admin-facing: every order across every customer, optionally filtered by
 // the raw DB status value (callers translate any display-level aliasing,
 // e.g. "success" -> "delivered", before calling this).
-function listAllOrders({ status } = {}) {
+async function listAllOrders({ status } = {}) {
 
     const conditions = [];
-    const params = {};
+    const params = [];
 
     if (status) {
-        conditions.push("o.status = @status");
-        params.status = status;
+        params.push(status);
+        conditions.push(`o.status = $${params.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const rows = db.prepare(
-        `${SELECT_ADMIN} ${where} ORDER BY o.placed_at DESC`
-    ).all(params);
+    const rows = await all(
+        `${SELECT_ADMIN} ${where} ORDER BY o.placed_at DESC`,
+        params
+    );
 
     return rows.map(toAdminOrder);
 

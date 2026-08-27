@@ -31,7 +31,7 @@ async function savePhotos(bookId, files) {
     // for these keys at read time (see utils/bookHelper.toPublicBook).
     const keys = uploaded.map((result) => result.key);
 
-    updateBook(bookId, {
+    await updateBook(bookId, {
         status: "PHOTO_UPLOADED",
 
         child: {

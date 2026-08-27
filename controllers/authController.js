@@ -53,9 +53,9 @@ async function google(req, res) {
     }
 }
 
-function refresh(req, res) {
+async function refresh(req, res) {
     try {
-        const session = authService.refresh(
+        const session = await authService.refresh(
             req.cookies?.[REFRESH_COOKIE_NAME],
             requestContext(req)
         );
@@ -70,14 +70,14 @@ function me(req, res) {
     res.json({ success: true, user: req.user });
 }
 
-function logout(req, res) {
-    authService.logout(req.cookies?.[REFRESH_COOKIE_NAME]);
+async function logout(req, res) {
+    await authService.logout(req.cookies?.[REFRESH_COOKIE_NAME]);
     res.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
     res.json({ success: true });
 }
 
-function logoutAll(req, res) {
-    authService.logoutAll(req.user.id);
+async function logoutAll(req, res) {
+    await authService.logoutAll(req.user.id);
     res.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
     res.json({ success: true });
 }
