@@ -1,7 +1,7 @@
 # kidora-be — Backlog
 
 Findings from a full read of the repository on 2026-08-21, ahead of taking it
-live as the Oopsy.Ink backend.
+live as the OopsyInk backend.
 
 Conventions: **P0** must be fixed before this is exposed to the public internet,
 **P1** blocks going live, **P2** costs money or correctness in normal operation,

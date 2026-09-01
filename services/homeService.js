@@ -126,9 +126,9 @@ function getHomeWidgets() {
     },
 
     {
-      widget_code: "why_kidora_main",
+      widget_code: "why_oopsy_ink_main",
       widget_name: "Why OopsyInk",
-      widget_type: "why_kidora",
+      widget_type: "why_oopsy_ink",
       cta_url: "/personalize",
       data: {
         eyebrow: "Why It Matters",

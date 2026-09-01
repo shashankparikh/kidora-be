@@ -125,12 +125,51 @@ db.exec(`
         alerted_at TEXT
     );
 
+    -- One row per Razorpay order this app ever creates — starting from
+    -- the moment checkout begins (status 'created'), before the customer
+    -- has paid anything. razorpay_order_id/razorpay_payment_id are
+    -- Razorpay's own ids, kept UNIQUE so the same payment can never fund
+    -- two orders no matter which of the two finalization paths (the
+    -- browser's /payments/verify call, or the async webhook) gets there
+    -- first — see db/paymentStore.js's claimCapture for how that race is
+    -- resolved. add_on_ids/coupon_code are duplicated here (not just
+    -- derivable from the eventual order) because the webhook path never
+    -- sees the browser's in-memory checkout state and needs everything
+    -- required to price the order on its own.
+    --
+    -- status also covers the refund dead end: 'captured' with order_id
+    -- still NULL means Razorpay took the money but neither finalization
+    -- path ever created an order for it (see services/paymentService.js's
+    -- reconcileOrphanedPayments) — that's what refund_id/refunded_at and
+    -- the transient 'refunding' status exist for; see
+    -- db/paymentStore.js's claimRefund/markRefunded/markRefundFailed.
+    CREATE TABLE IF NOT EXISTS payments (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        book_id TEXT NOT NULL,
+        razorpay_order_id TEXT UNIQUE NOT NULL,
+        razorpay_payment_id TEXT UNIQUE,
+        status TEXT NOT NULL DEFAULT 'created',
+        amount REAL NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'INR',
+        add_on_ids TEXT NOT NULL DEFAULT '[]',
+        coupon_code TEXT,
+        order_id TEXT REFERENCES orders(id),
+        failure_reason TEXT,
+        refund_id TEXT,
+        refunded_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_auth_accounts_user_id ON auth_accounts(user_id);
     CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
     CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
     CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
     CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
 `);
 
 // One-time, idempotent: imports any pre-existing storage/books/*/book.json
@@ -139,5 +178,11 @@ db.exec(`
 // table, so this recreates it — see db/migrateBooksTable.js). Safe to run
 // on every boot; it's a no-op once already applied.
 require("./migrateBooksTable")(db);
+
+// Adds refund_id/refunded_at to any payments table created before the
+// refund reconciliation feature existed — see db/migratePaymentsTable.js.
+// No-op on a fresh database (the CREATE TABLE above already has both
+// columns) and safe to run on every boot.
+require("./migratePaymentsTable")(db);
 
 module.exports = db;
