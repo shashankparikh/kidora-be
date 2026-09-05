@@ -1,10 +1,19 @@
 const storyThemes = require("../data/storyThemes");
 
+// Mirrors Kidora-fe's src/constants/pricing.ts BASE_PRICE. data/storyThemes.js
+// used to carry a `price` field per theme (every theme priced the same
+// anyway), but it's a content-only catalog now (icon/image/description —
+// see its own file comment) with no pricing fields at all, so this is the
+// one flat price for every theme. Keep these two in sync by hand.
+const BASE_PRICE = 1999;
+
 // The only server-side source of truth for what a book costs — see
 // BACKLOG.md P0.5. Never trust a `total` supplied by the client; this is
 // what closes the "anyone can create a total: 0 order" hole. Moved here
 // (out of orderService.js) now that payments — not just order records —
-// need to know the price up front, before an order even exists.
+// need to know the price up front, before an order even exists. Still
+// validates the theme exists (rejecting an unknown/typo'd theme id) even
+// though the price itself is no longer theme-specific.
 function getThemePrice(themeId) {
 
     const theme = storyThemes.find((candidate) => candidate.id === themeId);
@@ -13,7 +22,7 @@ function getThemePrice(themeId) {
         throw new Error("This storybook's theme is missing or unrecognized; cannot price the order.");
     }
 
-    return theme.price;
+    return BASE_PRICE;
 
 }
 
@@ -31,10 +40,9 @@ const COUPONS = {
 };
 
 // extra-copy's price is 65% of the *base* price on the frontend (see
-// addOns.ts), not a flat number, so it has to be computed against this
-// order's own theme price rather than hardcoded — today every theme
-// happens to price the same as the frontend's BASE_PRICE constant, but
-// this keeps the two in sync if that ever changes.
+// addOns.ts), not a flat number, so it's computed against basePrice
+// (BASE_PRICE above) rather than hardcoded, in case that constant ever
+// changes.
 function getAddOnPrice(addOnId, basePrice) {
 
     switch (addOnId) {
