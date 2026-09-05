@@ -1,4 +1,5 @@
 const orderService = require("../services/orderService");
+const settingsStore = require("../db/settingsStore");
 const reviewService = require("../services/reviewService");
 
 async function listOrders(req, res) {
@@ -49,8 +50,45 @@ async function moderateReview(req, res) {
 
 }
 
+async function getSettings(req, res) {
+
+    res.json({
+        success: true,
+        settings: await settingsStore.getSettings()
+    });
+
+}
+
+async function updateSettings(req, res) {
+
+    try {
+
+        // req.body is passed through as-is; settingsStore rejects unknown
+        // keys and bad values, so validation lives in one place rather than
+        // being duplicated here and drifting.
+        const settings = await settingsStore.updateSettings(
+            req.body,
+            req.admin?.username || null
+        );
+
+        res.json({ success: true, settings });
+
+    } catch (error) {
+
+        // A rejected setting is operator error, not a server fault.
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+
+}
+
 module.exports = {
     listOrders,
     listReviews,
-    moderateReview
+    moderateReview,
+    getSettings,
+    updateSettings
 };

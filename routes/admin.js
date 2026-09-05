@@ -30,4 +30,16 @@ router.patch(
     adminController.moderateReview
 );
 
+router.get(
+    "/settings",
+    requireAdminAuth,
+    adminController.getSettings
+);
+
+router.patch(
+    "/settings",
+    requireAdminAuth,
+    adminController.updateSettings
+);
+
 module.exports = router;

@@ -55,5 +55,6 @@ function assertValidStoryShape(story) {
 }
 
 module.exports = {
-    assertValidStoryShape
+    assertValidStoryShape,
+    EXPECTED_PAGE_COUNT
 };
