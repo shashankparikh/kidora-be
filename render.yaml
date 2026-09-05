@@ -1,0 +1,82 @@
+# Render blueprint for the Kidora storefront API.
+#
+# plan: free is deliberate — it is also why this service must not write to
+# local disk or use SQLite: the free tier has an ephemeral filesystem and no
+# persistent disk option. Book state lives in Supabase Postgres and generated
+# artefacts in S3.
+#
+# Free instances also spin down after a period without traffic and take
+# roughly a minute to wake. That is survivable for an admin tool and a
+# low-traffic storefront; it is not survivable for the multi-minute
+# generation request, which is the first thing to revisit if this goes
+# customer-facing at volume.
+services:
+  - type: web
+    name: kidora-be
+    runtime: node
+    plan: free
+    region: singapore
+    # Deploying from the feature branch while this is validated in a real
+    # environment. Change to main once it merges — Render redeploys on every
+    # push to whatever branch is named here.
+    branch: feat/postgres-migration
+    buildCommand: npm ci
+    startCommand: npm start
+
+    # server.js exposes GET /health. Render pings this to decide the deploy
+    # succeeded, so it must stay unauthenticated and must not touch the
+    # database — a health check that queries Postgres turns a slow database
+    # into a failed deploy.
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+      # sync: false means "prompt me in the dashboard, never store it here".
+      # Every one of these is a secret and must not reach the repository.
+      - key: DATABASE_URL          # Supabase -> Session pooler URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: ADMIN_JWT_SECRET
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+
+      # Not secret, but environment-specific: these are the Vercel URLs, and
+      # FRONTEND_URL/ADMIN_URL drive the CORS allowlist in server.js. Getting
+      # them wrong is a silent browser-only failure, so set them explicitly.
+      - key: FRONTEND_URL
+        sync: false
+      - key: ADMIN_URL
+        sync: false
+      - key: ASSETS_BASE_URL
+        sync: false
+
+      # The spend ceiling. Worth setting lower than the local default of 200
+      # for a public launch — see services/spendGuard.js.
+      - key: AI_DAILY_GENERATION_CAP
+        value: "50"
+      - key: ALERT_EMAIL
+        sync: false

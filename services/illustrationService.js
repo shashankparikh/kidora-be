@@ -4,6 +4,7 @@ const userStore = require("../db/userStore");
 const { sendEmail } = require("./emailService");
 const { storyReadyEmail } = require("./emailTemplates");
 const { assertWithinDailyCap, DailyCapError } = require("./spendGuard");
+const settingsStore = require("../db/settingsStore");
 
 const APP_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
@@ -15,13 +16,13 @@ function sleep(ms) {
 // Best-effort, fire-and-forget — only fires for books claimed by a logged
 // in user (anonymous books have no userId, so no one to email). Never
 // throws, so a missing user or failed send can't fail generation.
-function sendStoryReadyEmail(book) {
+async function sendStoryReadyEmail(book) {
 
     if (!book.userId) {
         return;
     }
 
-    const user = userStore.getUserById(book.userId);
+    const user = await userStore.getUserById(book.userId);
 
     if (!user) {
         // book.userId is set but points at no real user row — a real data
@@ -51,7 +52,7 @@ async function generateIllustrations(bookId) {
     console.log("Starting illustration generation...");
     console.log("==============================\n");
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
     if (!book.story || !book.story.pages) {
         throw new Error(
@@ -59,9 +60,24 @@ async function generateIllustrations(bookId) {
         );
     }
 
+    // How many pages actually get an illustration. This is the single
+    // biggest lever on cost per lead: every page is a paid image call, so
+    // previewing three pages instead of four is a 25% saving on every
+    // visitor who never buys. Operators set it from the admin console.
+    const { preview_page_count: pageLimit } = await settingsStore.getSettings();
+
     const updatedPages = [];
 
-    for (const page of book.story.pages) {
+    for (const [index, page] of book.story.pages.entries()) {
+
+        // Past the limit the page still travels with the book — it keeps its
+        // text and page number, and simply has no illustration. Dropping it
+        // instead would make the story read as though it ends early, and the
+        // frontend could not tell "not drawn yet" from "does not exist".
+        if (index >= pageLimit) {
+            updatedPages.push({ ...page, illustration: null });
+            continue;
+        }
 
         console.log(`\nStarting Page ${page.page}...`);
 
@@ -77,7 +93,7 @@ async function generateIllustrations(bookId) {
                     `Generating Page ${page.page} - Attempt ${attempt}`
                 );
 
-                assertWithinDailyCap();
+                await assertWithinDailyCap();
 
                 // Generate the illustration and upload it to S3
                 illustrationUrl = await generateIllustration(
@@ -139,7 +155,9 @@ async function generateIllustrations(bookId) {
 
     console.log("\nUpdating book.json...");
 
-    const updatedBook = updateBook(bookId, {
+    const updatedBook = await updateBook(bookId, {
+
+        status: "ILLUSTRATIONS_READY",
 
         story: {
 
@@ -155,7 +173,16 @@ async function generateIllustrations(bookId) {
         "✅ All illustrations generated successfully."
     );
 
-    sendStoryReadyEmail(updatedBook);
+    // Best-effort, and explicitly so. This is now an async call (it reads
+    // the user row over the network), and the book is already finished and
+    // saved by this point. An unhandled rejection here would take the whole
+    // process down over a notification, discarding a run that succeeded.
+    await sendStoryReadyEmail(updatedBook).catch((err) => {
+        console.error(
+            `[illustrationService] story-ready email failed for book ${bookId}:`,
+            err.message
+        );
+    });
 
     return updatedBook;
 

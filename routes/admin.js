@@ -30,4 +30,37 @@ router.patch(
     adminController.moderateReview
 );
 
+router.get(
+    "/settings",
+    requireAdminAuth,
+    adminController.getSettings
+);
+
+router.patch(
+    "/settings",
+    requireAdminAuth,
+    adminController.updateSettings
+);
+
+// Orphaned-payment refund tooling — see controllers/adminController.js
+// and services/paymentService.js. "Orphaned" = Razorpay captured the
+// money but no order was ever created for it.
+router.get(
+    "/payments/orphaned",
+    requireAdminAuth,
+    adminController.listOrphanedPayments
+);
+
+router.post(
+    "/payments/:paymentId/refund",
+    requireAdminAuth,
+    adminController.refundOrphanedPayment
+);
+
+router.post(
+    "/payments/reconcile",
+    requireAdminAuth,
+    adminController.reconcileOrphanedPayments
+);
+
 module.exports = router;

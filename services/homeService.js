@@ -4,7 +4,7 @@ const reviewService = require("./reviewService");
 const ASSETS_BASE_URL =
   process.env.ASSETS_BASE_URL || "http://localhost:3000/assets";
 
-function getHomeWidgets() {
+async function getHomeWidgets() {
   const modules = [
     {
       widget_code: "hero_main",
@@ -126,9 +126,9 @@ function getHomeWidgets() {
     },
 
     {
-      widget_code: "why_kidora_main",
+      widget_code: "why_oopsy_ink_main",
       widget_name: "Why OopsyInk",
-      widget_type: "why_kidora",
+      widget_type: "why_oopsy_ink",
       cta_url: "/personalize",
       data: {
         eyebrow: "Why It Matters",
@@ -241,7 +241,7 @@ function getHomeWidgets() {
         // empty on a fresh install. rating_summary is omitted
         // entirely (not zeroed out) until there's enough real data
         // to be honest about — see reviewService.getSummary.
-        items: reviewService.getFeaturedReviews(6).map((review) => ({
+        items: (await reviewService.getFeaturedReviews(6)).map((review) => ({
           id: review.id,
           quote: review.comment || review.title || "",
           author: review.author,
@@ -250,7 +250,7 @@ function getHomeWidgets() {
           story_theme: review.storyTheme,
           img_url: null,
         })),
-        rating_summary: reviewService.getSummary(),
+        rating_summary: await reviewService.getSummary(),
       },
     },
 

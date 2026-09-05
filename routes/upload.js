@@ -3,6 +3,8 @@ const multer = require("multer");
 
 const router = express.Router();
 
+const { requireAuth } = require("../middleware/auth");
+
 const uploadController = require("../controllers/uploadController");
 const { uploadLimiter } = require("../middleware/generationRateLimit");
 const validateImageUpload = require("../middleware/validateImageUpload");
@@ -19,6 +21,7 @@ const upload = multer({
 
 router.post(
     "/books/:bookId/upload",
+    requireAuth,
     uploadLimiter,
     upload.array("photos", 4),
     // A file over the 10MB limit (or a 5th file) makes multer call next(err)

@@ -3,22 +3,6 @@ const orderStore = require("../db/orderStore");
 const analyticsService = require("./analyticsService");
 const { getSignedGetUrl } = require("./s3Service");
 const { isS3Key } = require("./imageStorage");
-const storyThemes = require("../data/storyThemes");
-
-// The only server-side source of truth for what a book costs — see
-// BACKLOG.md P0.5. Never trust a `total` supplied by the client; this is
-// what closes the "anyone can create a total: 0 order" hole.
-function getThemePrice(themeId) {
-
-    const theme = storyThemes.find((candidate) => candidate.id === themeId);
-
-    if (!theme) {
-        throw new Error("This storybook's theme is missing or unrecognized; cannot price the order.");
-    }
-
-    return theme.price;
-
-}
 
 // orders.cover_image_url is a bare S3 key for any order placed after the
 // P0.1 privacy fix (see BACKLOG.md) — this signs it into a short-lived URL
@@ -38,12 +22,20 @@ async function signOrder(order) {
 
 }
 
-// There's no payment gateway wired up yet — see checkout.paymentComingSoon
-// on the frontend — so this doesn't verify a payment, only the price. Once
-// a gateway exists, this total is what should be charged/verified against.
-async function createOrder({ userId, bookId, gaClientId }) {
+// `total` is trusted here on purpose — this function is no longer reachable
+// from any HTTP route directly (there is deliberately no POST /orders
+// anymore; see routes/orders.js and BACKLOG.md P0.5). Its only caller is
+// services/paymentService.js, after a Razorpay payment has actually been
+// verified/captured, passing the amount that was really charged. Never
+// wire a new route straight to this function without pricing/payment
+// verification in front of it.
+async function createOrder({ userId, bookId, gaClientId, total }) {
 
-    const book = getBook(bookId);
+    if (!Number.isFinite(total) || total <= 0) {
+        throw new Error("A valid order total is required.");
+    }
+
+    const book = await getBook(bookId);
 
     if (!book) {
         throw new Error("Book not found.");
@@ -59,14 +51,14 @@ async function createOrder({ userId, bookId, gaClientId }) {
 
     const coverImageUrl = book.story.pages?.[0]?.illustration ?? null;
 
-    const order = orderStore.createOrder({
+    const order = await orderStore.createOrder({
         userId,
         bookId,
         bookTitle: book.story.title ?? "Their Storybook",
         coverImageUrl,
         storyTheme: book.theme || null,
         childName: book.child?.name || null,
-        total: getThemePrice(book.theme)
+        total
     });
 
     // Fire-and-forget: analyticsService catches its own errors, so this
@@ -84,12 +76,12 @@ async function createOrder({ userId, bookId, gaClientId }) {
 }
 
 async function listOrdersForUser(userId) {
-    const orders = orderStore.listOrdersForUser(userId);
+    const orders = await orderStore.listOrdersForUser(userId);
     return Promise.all(orders.map(signOrder));
 }
 
-function getOrderForUser(orderId, userId) {
-    return orderStore.getOrderByIdForUser(orderId, userId);
+async function getOrderForUser(orderId, userId) {
+    return await orderStore.getOrderByIdForUser(orderId, userId);
 }
 
 // Admin dashboard deals in "pending / success / rejected" — there's no
@@ -107,7 +99,7 @@ const DB_TO_DISPLAY_STATUS = { delivered: "success" };
 async function listAllOrders({ status } = {}) {
 
     const dbStatus = status ? (DISPLAY_TO_DB_STATUS[status] || status) : undefined;
-    const orders = orderStore.listAllOrders({ status: dbStatus });
+    const orders = await orderStore.listAllOrders({ status: dbStatus });
 
     return Promise.all(orders.map(async (order) => signOrder({
         ...order,

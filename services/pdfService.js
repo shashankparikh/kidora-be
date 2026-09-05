@@ -4,17 +4,15 @@ const {
     StandardFonts 
 } = require("pdf-lib");
 
-const fs = require("fs");
-const path = require("path");
-
-const { getBook, updateBook, getBookFolder } = require("../utils/bookHelper");
+const { getBook, updateBook } = require("../utils/bookHelper");
 const { readImageBytes } = require("./imageStorage");
+const { uploadBuffer } = require("./s3Service");
 
 
 async function generatePDF(bookId) {
 
 
-    const book = getBook(bookId);
+    const book = await getBook(bookId);
 
 
     if (!book.story) {
@@ -30,9 +28,6 @@ async function generatePDF(bookId) {
     const font = await pdfDoc.embedFont(
         StandardFonts.Helvetica
     );
-
-
-    const bookFolder = getBookFolder(bookId);
 
 
     /*
@@ -227,25 +222,27 @@ async function generatePDF(bookId) {
 
 
 
-    const pdfPath =
-        path.join(
-            bookFolder,
-            "storybook.pdf"
-        );
-
-
-    fs.writeFileSync(
-        pdfPath,
-        pdfBytes
+    // To S3, not the local filesystem: the service runs on a host with an
+    // ephemeral disk, so a file written here is gone on the next restart or
+    // deploy — and with one container per deploy there is no guarantee the
+    // request that generated the book is served by the process that later
+    // gets asked for it.
+    //
+    // The bare KEY is stored, not the public URL, matching how illustrations
+    // are recorded (see services/ai/imageAI.js). A child's personalised book
+    // is not a public asset; the key is resolved through our own credentials
+    // at download time.
+    const { key: pdfKey } = await uploadBuffer(
+        `books/${bookId}/storybook.pdf`,
+        Buffer.from(pdfBytes),
+        "application/pdf"
     );
 
-
-
-    return updateBook(
+    return await updateBook(
         bookId,
         {
             status: "PDF_GENERATED",
-            pdf: "storybook.pdf"
+            pdf: pdfKey
         }
     );
 

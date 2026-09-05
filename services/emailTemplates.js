@@ -5,7 +5,7 @@ const GOLD = "#ffc93c";
 const INK = "#3d4066";
 const MUTED = "#6b6f94";
 
-function layout({ heading, body, ctaLabel, ctaUrl }) {
+function layout({ heading, body, ctaLabel, ctaUrl, code }) {
 
     return `
 <div style="background:#f5f6fc;padding:40px 16px;font-family:'Trebuchet MS','Segoe UI',sans-serif;">
@@ -17,6 +17,11 @@ function layout({ heading, body, ctaLabel, ctaUrl }) {
       <h1 style="margin:0 0 16px;color:${INK};font-size:22px;">${heading}</h1>
       <p style="margin:0 0 24px;color:${MUTED};font-size:15px;line-height:1.7;">${body}</p>
       ${
+          code
+              ? `<div style="margin:0 0 24px;padding:18px;border-radius:14px;background:#f5f6fc;text-align:center;"><span style="font-family:'Courier New',monospace;font-size:32px;font-weight:800;letter-spacing:10px;color:${NAVY};">${code}</span></div>`
+              : ""
+      }
+      ${
           ctaUrl
               ? `<a href="${ctaUrl}" style="display:inline-block;padding:12px 26px;border-radius:999px;background:${GOLD};color:${NAVY};font-weight:800;text-decoration:none;font-size:15px;">${ctaLabel}</a>`
               : ""
@@ -27,6 +32,25 @@ function layout({ heading, body, ctaLabel, ctaUrl }) {
     </div>
   </div>
 </div>`;
+
+}
+
+// The code appears in the subject as well as the body. That is deliberate:
+// it lets someone read it straight from a notification without opening the
+// mail, which is what consumer apps do and what customers now expect. The
+// trade is that it is visible on a lock screen — acceptable here, because
+// anyone holding the unlocked-enough phone to read it can also open the
+// inbox.
+function loginCodeEmail({ code, minutes }) {
+
+    return {
+        subject: `${code} is your OopsyInk sign-in code`,
+        html: layout({
+            heading: "Here's your sign-in code",
+            body: `Enter this code to sign in. It expires in ${minutes} minutes and can only be used once. If you didn't ask for it, you can safely ignore this email — nobody can sign in without it.`,
+            code
+        })
+    };
 
 }
 
@@ -85,6 +109,7 @@ function dailySpendCapAlert({ cap, date }) {
 
 module.exports = {
     welcomeEmail,
+    loginCodeEmail,
     storyReadyEmail,
     newsletterConfirmationEmail,
     dailySpendCapAlert

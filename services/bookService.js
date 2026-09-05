@@ -1,12 +1,10 @@
-const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 
 const { createBookModel } = require("../models/bookModel");
 const bookStore = require("../db/bookStore");
 
 
-function createBook() {
+async function createBook({ userId = null } = {}) {
 
     // Was "bk_" + Date.now() — a millisecond timestamp is guessable within
     // a day's worth of requests, and storage/ used to be served statically,
@@ -15,23 +13,14 @@ function createBook() {
     const bookId = "bk_" + crypto.randomUUID();
 
 
-    // Still create the physical folder — it's used later for the
-    // generated PDF (services/pdfService.js). Book metadata itself lives
-    // in SQLite now, not book.json (see BACKLOG.md P1.1).
-    const bookPath = path.join(
-        __dirname,
-        "..",
-        "storage",
-        "books",
-        bookId
-    );
-
-    fs.mkdirSync(bookPath, { recursive: true });
-
-
     const book = createBookModel(bookId);
 
-    bookStore.createBook(book);
+    // Stamped at creation rather than at claim time. Generation now requires
+    // a signed-in customer, and the story-ready email is addressed from this
+    // field — a book with no owner is one nobody can be told about.
+    book.userId = userId;
+
+    await bookStore.createBook(book);
 
 
     return {

@@ -1,6 +1,6 @@
 const reviewService = require("../services/reviewService");
 
-function createReview(req, res) {
+async function createReview(req, res) {
 
     try {
 
@@ -10,7 +10,7 @@ function createReview(req, res) {
             return res.status(400).json({ success: false, message: "orderId is required." });
         }
 
-        const review = reviewService.createReview({
+        const review = await reviewService.createReview({
             orderId,
             userId: req.user.id,
             rating,
@@ -35,11 +35,11 @@ function createReview(req, res) {
 
 }
 
-function listReviews(req, res) {
+async function listReviews(req, res) {
 
     const { theme, limit } = req.query;
 
-    const reviews = reviewService.listPublicReviews({
+    const reviews = await reviewService.listPublicReviews({
         theme: theme || undefined,
         limit: limit ? Number(limit) : undefined
     });
@@ -51,11 +51,11 @@ function listReviews(req, res) {
 
 }
 
-function getSummary(req, res) {
+async function getSummary(req, res) {
 
     res.json({
         success: true,
-        summary: reviewService.getSummary()
+        summary: await reviewService.getSummary()
     });
 
 }

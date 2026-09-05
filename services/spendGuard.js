@@ -25,13 +25,13 @@ const DAILY_CAP = envCap !== undefined && envCap !== "" ? Number(envCap) : 200;
 // spend"). Every one of the (potentially many) requests rejected for the
 // rest of the day would otherwise each try to send their own alert; the
 // alerted_at flag on today's ai_usage row makes this a single notification.
-function alertCapReachedOnce() {
+async function alertCapReachedOnce() {
 
-    if (!process.env.ALERT_EMAIL || aiUsageStore.hasAlertedToday()) {
+    if (!process.env.ALERT_EMAIL || await aiUsageStore.hasAlertedToday()) {
         return;
     }
 
-    aiUsageStore.markAlertedToday();
+    await aiUsageStore.markAlertedToday();
 
     const { subject, html } = dailySpendCapAlert({
         cap: DAILY_CAP,
@@ -46,18 +46,31 @@ function alertCapReachedOnce() {
 // story generation, each illustration attempt — including retries, since
 // a retried attempt still costs the provider call). Throws and makes no
 // provider call at all once the day's cap is reached — fails closed.
-function assertWithinDailyCap() {
+async function assertWithinDailyCap() {
 
-    const usedToday = aiUsageStore.getTodayCount();
-
-    if (usedToday >= DAILY_CAP) {
-        alertCapReachedOnce();
+    // A cap of 0 is the kill switch, and it has to be handled before the
+    // database call. reserveCall's guard only applies to the DO UPDATE
+    // branch — on the first call of a day there is no row to conflict
+    // with, so the plain INSERT would write call_count = 1 and let one
+    // call through a cap that means "stop all generation".
+    if (DAILY_CAP <= 0) {
+        await alertCapReachedOnce();
         throw new DailyCapError(
             "Daily generation limit reached. Please try again tomorrow."
         );
     }
 
-    aiUsageStore.incrementToday();
+    // One atomic statement, not a read followed by a write — see the
+    // comment on aiUsageStore.reserveCall for why the two-step version
+    // stopped being safe once these calls went over the network.
+    const reserved = await aiUsageStore.reserveCall(DAILY_CAP);
+
+    if (!reserved) {
+        await alertCapReachedOnce();
+        throw new DailyCapError(
+            "Daily generation limit reached. Please try again tomorrow."
+        );
+    }
 
 }
 

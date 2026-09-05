@@ -9,7 +9,7 @@ async function listMyBooks(req, res) {
 
     try {
 
-        const books = bookStore.listBooksForUser(req.user.id);
+        const books = await bookStore.listBooksForUser(req.user.id);
 
         res.json({
             success: true,

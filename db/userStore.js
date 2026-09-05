@@ -1,11 +1,12 @@
 const crypto = require("crypto");
 
-const db = require("./database");
+const { get, run } = require("./database");
 
 function nowIso() {
     return new Date().toISOString();
 }
 
+// Pure row -> shape mapping, so this one stays synchronous.
 function toPublicUser(row) {
     if (!row) {
         return null;
@@ -25,7 +26,7 @@ function toPublicUser(row) {
     };
 }
 
-function createUser({
+async function createUser({
     email,
     firstName = null,
     lastName = null,
@@ -38,42 +39,45 @@ function createUser({
     const id = `usr_${crypto.randomUUID()}`;
     const timestamp = nowIso();
 
-    db.prepare(
+    // RETURNING * instead of a follow-up SELECT. Under better-sqlite3 the
+    // extra read was a local file lookup; against a pooled remote database
+    // it is a second network round trip for a row we already have.
+    return get(
         `INSERT INTO users
-            (id, email, first_name, last_name, mobile_number, avatar_url, password_hash, role, email_verified, created_at, updated_at)
+            (id, email, first_name, last_name, mobile_number, avatar_url,
+             password_hash, role, email_verified, created_at, updated_at)
          VALUES
-            (@id, @email, @firstName, @lastName, @mobileNumber, @avatarUrl, @passwordHash, 'customer', @emailVerified, @createdAt, @updatedAt)`
-    ).run({
-        id,
-        email: email.toLowerCase(),
-        firstName,
-        lastName,
-        mobileNumber,
-        avatarUrl,
-        passwordHash,
-        emailVerified: emailVerified ? 1 : 0,
-        createdAt: timestamp,
-        updatedAt: timestamp
-    });
-
-    return getUserById(id);
+            ($1, $2, $3, $4, $5, $6, $7, 'customer', $8, $9, $9)
+         RETURNING *`,
+        [
+            id,
+            email.toLowerCase(),
+            firstName,
+            lastName,
+            mobileNumber,
+            avatarUrl,
+            passwordHash,
+            emailVerified ? 1 : 0,
+            timestamp
+        ]
+    );
 
 }
 
-function getUserById(id) {
-    const row = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+async function getUserById(id) {
+    const row = await get("SELECT * FROM users WHERE id = $1", [id]);
     return row ?? null;
 }
 
-function getUserByEmail(email) {
-    const row = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
+async function getUserByEmail(email) {
+    const row = await get(
+        "SELECT * FROM users WHERE email = $1",
+        [email.toLowerCase()]
+    );
     return row ?? null;
 }
 
-function updateUser(id, updates) {
-
-    const fields = [];
-    const params = { id, updatedAt: nowIso() };
+async function updateUser(id, updates) {
 
     const columnMap = {
         firstName: "first_name",
@@ -83,10 +87,17 @@ function updateUser(id, updates) {
         emailVerified: "email_verified"
     };
 
+    // Postgres placeholders are positional, so the column list and the
+    // params array have to be built in step with each other.
+    const fields = [];
+    const params = [];
+
     for (const [key, column] of Object.entries(columnMap)) {
         if (updates[key] !== undefined) {
-            fields.push(`${column} = @${key}`);
-            params[key] = key === "emailVerified" ? (updates[key] ? 1 : 0) : updates[key];
+            params.push(
+                key === "emailVerified" ? (updates[key] ? 1 : 0) : updates[key]
+            );
+            fields.push(`${column} = $${params.length}`);
         }
     }
 
@@ -94,80 +105,98 @@ function updateUser(id, updates) {
         return getUserById(id);
     }
 
-    db.prepare(
-        `UPDATE users SET ${fields.join(", ")}, updated_at = @updatedAt WHERE id = @id`
-    ).run(params);
+    params.push(nowIso());
+    const updatedAtParam = params.length;
 
-    return getUserById(id);
+    params.push(id);
+    const idParam = params.length;
+
+    const row = await get(
+        `UPDATE users SET ${fields.join(", ")}, updated_at = $${updatedAtParam}
+         WHERE id = $${idParam}
+         RETURNING *`,
+        params
+    );
+
+    return row ?? null;
 
 }
 
-function createAuthAccount({ userId, provider, providerAccountId }) {
+async function createAuthAccount({ userId, provider, providerAccountId }) {
 
     const id = `auth_${crypto.randomUUID()}`;
 
-    db.prepare(
-        `INSERT INTO auth_accounts (id, user_id, provider, provider_account_id, created_at)
-         VALUES (@id, @userId, @provider, @providerAccountId, @createdAt)`
-    ).run({
-        id,
-        userId,
-        provider,
-        providerAccountId,
-        createdAt: nowIso()
-    });
+    await run(
+        `INSERT INTO auth_accounts
+            (id, user_id, provider, provider_account_id, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, userId, provider, providerAccountId, nowIso()]
+    );
 
     return id;
 
 }
 
-function findAuthAccount({ provider, providerAccountId }) {
-    const row = db.prepare(
-        "SELECT * FROM auth_accounts WHERE provider = ? AND provider_account_id = ?"
-    ).get(provider, providerAccountId);
+async function findAuthAccount({ provider, providerAccountId }) {
+    const row = await get(
+        `SELECT * FROM auth_accounts
+         WHERE provider = $1 AND provider_account_id = $2`,
+        [provider, providerAccountId]
+    );
     return row ?? null;
 }
 
-function createRefreshSession({ userId, refreshTokenHash, userAgent, ipAddress, expiresAt }) {
+async function createRefreshSession({
+    userId,
+    refreshTokenHash,
+    userAgent,
+    ipAddress,
+    expiresAt
+}) {
 
     const id = `sess_${crypto.randomUUID()}`;
 
-    db.prepare(
+    await run(
         `INSERT INTO refresh_sessions
-            (id, user_id, refresh_token_hash, user_agent, ip_address, expires_at, revoked_at, created_at)
-         VALUES
-            (@id, @userId, @refreshTokenHash, @userAgent, @ipAddress, @expiresAt, NULL, @createdAt)`
-    ).run({
-        id,
-        userId,
-        refreshTokenHash,
-        userAgent: userAgent ?? null,
-        ipAddress: ipAddress ?? null,
-        expiresAt,
-        createdAt: nowIso()
-    });
+            (id, user_id, refresh_token_hash, user_agent, ip_address,
+             expires_at, revoked_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NULL, $7)`,
+        [
+            id,
+            userId,
+            refreshTokenHash,
+            userAgent ?? null,
+            ipAddress ?? null,
+            expiresAt,
+            nowIso()
+        ]
+    );
 
     return id;
 
 }
 
-function findRefreshSessionByHash(refreshTokenHash) {
-    const row = db.prepare(
-        "SELECT * FROM refresh_sessions WHERE refresh_token_hash = ?"
-    ).get(refreshTokenHash);
+async function findRefreshSessionByHash(refreshTokenHash) {
+    const row = await get(
+        "SELECT * FROM refresh_sessions WHERE refresh_token_hash = $1",
+        [refreshTokenHash]
+    );
     return row ?? null;
 }
 
-function revokeRefreshSession(id) {
-    db.prepare(
-        "UPDATE refresh_sessions SET revoked_at = ? WHERE id = ?"
-    ).run(nowIso(), id);
+async function revokeRefreshSession(id) {
+    await run(
+        "UPDATE refresh_sessions SET revoked_at = $1 WHERE id = $2",
+        [nowIso(), id]
+    );
 }
 
-function revokeAllRefreshSessionsForUser(userId) {
-    db.prepare(
-        "UPDATE refresh_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL"
-    ).run(nowIso(), userId);
+async function revokeAllRefreshSessionsForUser(userId) {
+    await run(
+        `UPDATE refresh_sessions SET revoked_at = $1
+         WHERE user_id = $2 AND revoked_at IS NULL`,
+        [nowIso(), userId]
+    );
 }
 
 module.exports = {
