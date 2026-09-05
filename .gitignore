@@ -15,3 +15,6 @@ Thumbs.db
 
 # Logs
 *.log
+# Backups of .env written during setup — these contain real secrets.
+.env.bak*
+.env.*.bak
