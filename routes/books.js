@@ -9,6 +9,7 @@ const { createBookLimiter } = require("../middleware/generationRateLimit");
 
 router.post(
     "/",
+    requireAuth,
     createBookLimiter,
     bookController.createBook
 );

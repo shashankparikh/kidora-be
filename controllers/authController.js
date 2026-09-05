@@ -1,4 +1,5 @@
 const authService = require("../services/authService");
+const otpService = require("../services/otpService");
 const { REFRESH_TOKEN_TTL_MS } = require("../utils/tokens");
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -82,8 +83,44 @@ async function logoutAll(req, res) {
     res.json({ success: true });
 }
 
+async function requestOtp(req, res) {
+    try {
+        const result = await otpService.requestOtp({
+            email: req.body?.email,
+            ipAddress: req.ip
+        });
+        res.json({ success: true, ...result });
+    } catch (error) {
+        // Deliberately surfaced verbatim. Unlike password login there is no
+        // account-existence secret here — a code is sent to whatever address
+        // is typed, whether or not it has an account — so the only errors
+        // possible are a malformed address or the rate limit, and both are
+        // things the customer needs told plainly.
+        res.status(400).json({ success: false, message: error.message });
+    }
+}
+
+async function verifyOtp(req, res) {
+    try {
+        const session = await otpService.verifyOtp(
+            {
+                email: req.body?.email,
+                code: req.body?.code,
+                mobileNumber: req.body?.mobileNumber,
+                firstName: req.body?.firstName
+            },
+            requestContext(req)
+        );
+        sendSession(res, session);
+    } catch (error) {
+        res.status(401).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     register,
+    requestOtp,
+    verifyOtp,
     login,
     google,
     refresh,

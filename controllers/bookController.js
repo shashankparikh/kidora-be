@@ -3,7 +3,7 @@ const { getBook, updateBook, toPublicBook } = require("../utils/bookHelper");
 
 async function createBook(req, res) {
 
-    const book = await bookService.createBook();
+    const book = await bookService.createBook({ userId: req.user.id });
 
     res.json({
         success: true,

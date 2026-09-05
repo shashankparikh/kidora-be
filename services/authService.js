@@ -221,6 +221,8 @@ async function logoutAll(userId) {
 }
 
 module.exports = {
+    issueSession,
+    sendWelcomeEmail,
     register,
     login,
     loginWithGoogle,

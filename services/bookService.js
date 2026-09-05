@@ -4,7 +4,7 @@ const { createBookModel } = require("../models/bookModel");
 const bookStore = require("../db/bookStore");
 
 
-async function createBook() {
+async function createBook({ userId = null } = {}) {
 
     // Was "bk_" + Date.now() — a millisecond timestamp is guessable within
     // a day's worth of requests, and storage/ used to be served statically,
@@ -14,6 +14,11 @@ async function createBook() {
 
 
     const book = createBookModel(bookId);
+
+    // Stamped at creation rather than at claim time. Generation now requires
+    // a signed-in customer, and the story-ready email is addressed from this
+    // field — a book with no owner is one nobody can be told about.
+    book.userId = userId;
 
     await bookStore.createBook(book);
 
