@@ -230,11 +230,17 @@ Removed the `shashank`/`shashank` fallback entirely —
 refuses to boot) if `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset. Admin JWTs
 now sign with their own `ADMIN_JWT_SECRET`, no longer sharing a key with
 customer tokens (`utils/tokens.js`). Password comparison uses
-`crypto.timingSafeEqual`. Generated real random values for the local `.env`
-(new admin password: `Qr02NS3In3vps4ttAt0YfKfj` — needs setting again in
-whatever production environment this deploys to). A real admin-users table
+`crypto.timingSafeEqual`. Generated real random values for the local `.env`. A real admin-users table
 with hashed passwords was deliberately deferred, matching the original fix
 note's own scoping ("before more than one operator exists").
+
+**Superseded.** More than one operator now exists. `ADMIN_USERNAME` /
+`ADMIN_PASSWORD` are gone entirely; accounts live in the `admin_users` table
+(migration 009) with bcrypt hashes, managed by `scripts/admin-user.js`, and
+every write in the fulfilment queue is stamped with the operator's display
+name. The shared credential was not only a security problem — it made the
+`order_events.actor` column say the same name no matter who was working,
+which is worse than an empty column because it reads as a fact.
 
 ### P0.4 — Uploads are unvalidated
 `middleware/validateImageUpload.js` + `utils/imageSignature.js` check magic

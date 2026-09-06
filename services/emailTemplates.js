@@ -54,6 +54,62 @@ function loginCodeEmail({ code, minutes }) {
 
 }
 
+// The preview is ready. Deliberately framed as an invitation to check the
+// book rather than as a deadline — the window is real and has to be stated,
+// but a parent opening this should feel looked after, not hurried.
+function previewReadyEmail({ name, childName, previewUrl, hours }) {
+
+    const who = childName ? `${childName}'s` : "your child's";
+
+    return {
+        subject: `${childName || "Your child"}'s book is ready to look at`,
+        html: layout({
+            heading: `Have a look at ${who} book`,
+            body: `Hi ${name || "there"}, we've finished ${who} story and you can see it now. Take your time — if anything isn't quite right, a name, a page, a detail, just tell us and we'll change it. You have ${hours} hours before it goes to print.`,
+            ctaLabel: "See The Preview",
+            ctaUrl: previewUrl
+        })
+    };
+
+}
+
+// First nudge, at 24 hours. Assumes nothing about why they have not replied —
+// most people are simply busy, and a book for their child is not urgent to
+// anybody but us.
+function previewNudgeEmail({ name, childName, previewUrl, hoursLeft }) {
+
+    const who = childName ? `${childName}'s` : "your child's";
+
+    return {
+        subject: `${childName || "Your child"}'s book is waiting for you`,
+        html: layout({
+            heading: "Still here whenever you are",
+            body: `Hi ${name || "there"}, ${who} book is ready and waiting. If everything looks good you don't need to do anything at all — and if you'd like something changed, there's still about ${hoursLeft} hours to tell us.`,
+            ctaLabel: "See The Preview",
+            ctaUrl: previewUrl
+        })
+    };
+
+}
+
+// Last nudge, at 48 hours. The only one that names the consequence, because
+// by now it is genuinely useful information rather than pressure.
+function previewFinalNudgeEmail({ name, childName, previewUrl, hoursLeft }) {
+
+    const who = childName ? `${childName}'s` : "your child's";
+
+    return {
+        subject: `Printing ${childName || "your child"}'s book soon`,
+        html: layout({
+            heading: "One last look?",
+            body: `Hi ${name || "there"}, we're about to send ${who} book to print. If you're happy, there's nothing to do — it'll be with you in 7 to 10 days. If you'd like anything changed, let us know in the next ${hoursLeft} hours or so and we'll sort it before it's printed.`,
+            ctaLabel: "See The Preview",
+            ctaUrl: previewUrl
+        })
+    };
+
+}
+
 function welcomeEmail({ name, appUrl }) {
 
     return {
@@ -109,6 +165,9 @@ function dailySpendCapAlert({ cap, date }) {
 
 module.exports = {
     welcomeEmail,
+    previewReadyEmail,
+    previewNudgeEmail,
+    previewFinalNudgeEmail,
     loginCodeEmail,
     storyReadyEmail,
     newsletterConfirmationEmail,

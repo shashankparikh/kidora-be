@@ -64,7 +64,18 @@ async function claimBook(req, res) {
 
 }
 
+// PATCH /books/:bookId — the wizard saving what it collected.
+async function saveDetails(req, res) {
+    try {
+        const book = await bookService.saveDetails(req.params.bookId, req.body);
+        res.json({ success: true, book: await toPublicBook(book) });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
+    saveDetails,
     createBook,
     getBookById,
     claimBook

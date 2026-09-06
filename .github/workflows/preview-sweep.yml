@@ -1,0 +1,42 @@
+# Runs the preview sweep: 24h and 48h reminders, then auto-approve once a
+# customer's window closes.
+#
+# WHY GITHUB ACTIONS AND NOT A TIMER IN THE APP
+# The service runs on a plan that sleeps when idle, so an in-process
+# setInterval simply stops — a reminder due at 24h could arrive whenever
+# somebody next happens to visit the site. This repository is public, so
+# Actions minutes are unlimited and this costs nothing.
+#
+# The request also wakes the sleeping instance, which means the sweep runs
+# against a warm server and the next real visitor is less likely to meet a
+# cold start.
+#
+# Two things to know about Actions cron: scheduled runs are queued and can be
+# late by 5-15 minutes, which is irrelevant for a reminder measured in days;
+# and GitHub disables scheduled workflows after 60 days with no commits to the
+# repository, which will need a nudge if development ever goes quiet.
+name: Preview sweep
+
+on:
+  schedule:
+    # Hourly. The windows are measured in days, so this is far more often than
+    # strictly needed — the extra runs are what keep the instance warm.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep endpoint
+        run: |
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
+            --max-time 120 --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST "${{ secrets.BACKEND_URL }}/admin/sweep" \
+            -H "x-sweep-secret: ${{ secrets.SWEEP_SECRET }}")
+          echo "HTTP $code"
+          cat /tmp/out.json
+          echo
+          # A non-2xx is a real failure worth a red tick — a silently broken
+          # sweep means customers stop getting reminders and nobody notices.
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]

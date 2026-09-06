@@ -51,14 +51,23 @@ function refreshExpiryDate() {
     return new Date(Date.now() + REFRESH_TOKEN_TTL_MS).toISOString();
 }
 
-// Admin tokens are a completely separate, lighter-weight scheme from the
-// customer auth above — there's no admin-users table yet (just a single
-// operator login from env), so this just signs a scoped JWT rather than
-// reusing signAccessToken's user-row-shaped claims. Signed with its own
-// secret (getAdminSecret), not the customer one.
+// Admin tokens are a completely separate scheme from the customer auth above
+// — different table (admin_users), different secret (getAdminSecret), so a
+// leak of one does not reach the other.
+//
+// `name` rides along with `sub` so every write can be stamped with the
+// operator's display name without a lookup on each request. The audit trail
+// stores that name as it was at the time of the action, which is why it is
+// carried on the token rather than joined at read time: a later rename must
+// not rewrite what the history says happened.
 function signAdminToken(admin) {
     return jwt.sign(
-        { sub: admin.username, role: "admin", scope: "admin" },
+        {
+            sub: admin.username,
+            name: admin.displayName || admin.username,
+            role: "admin",
+            scope: "admin"
+        },
         getAdminSecret(),
         { expiresIn: ADMIN_TOKEN_TTL }
     );

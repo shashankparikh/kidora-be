@@ -2,6 +2,7 @@ const { getBook } = require("../utils/bookHelper");
 const orderService = require("./orderService");
 const orderStore = require("../db/orderStore");
 const paymentStore = require("../db/paymentStore");
+const pipeline = require("./orderPipeline");
 const pricingService = require("./pricingService");
 const razorpayService = require("./razorpayService");
 
@@ -121,6 +122,15 @@ async function createOrderForCapturedPayment({ payment, razorpayPaymentId, gaCli
 
     await paymentStore.linkOrder({ razorpayOrderId: payment.razorpayOrderId, orderId: order.id });
 
+    // The order enters the fulfilment pipeline the moment it is paid for.
+    // Best-effort: the payment is captured and the order exists, and failing
+    // the customer's checkout because a status write failed would be the
+    // wrong trade — the queue can be corrected, a lost payment cannot.
+    await pipeline.setStatus(order.id, pipeline.STATUS.NEW_ORDER, {
+        actorType: "system",
+        message: "Payment captured"
+    }).catch((err) => console.error("[paymentService] pipeline status failed:", err.message));
+
     return order;
 
 }
@@ -219,7 +229,7 @@ async function finalizeFromWebhook({ event, payload }) {
 // order_id, so calling this twice concurrently (sweep + admin click
 // racing each other, or two sweep ticks overlapping) results in exactly
 // one Razorpay refund call, not two.
-async function refundOrphanedPayment(payment) {
+async function refundOrphanedPayment(payment, refundedBy = "system") {
 
     const { wasClaimed } = await paymentStore.claimRefund({ razorpayOrderId: payment.razorpayOrderId });
 
@@ -238,7 +248,7 @@ async function refundOrphanedPayment(payment) {
             notes: { reason: "orphaned_capture_reconciliation", bookId: payment.bookId }
         });
 
-        await paymentStore.markRefunded({ razorpayOrderId: payment.razorpayOrderId, refundId: refund.id });
+        await paymentStore.markRefunded({ razorpayOrderId: payment.razorpayOrderId, refundId: refund.id, refundedBy });
 
         return { refunded: true, refundId: refund.id };
 
@@ -261,7 +271,7 @@ async function refundOrphanedPayment(payment) {
 // Admin-triggered: refund one specific orphaned payment right now, by its
 // internal id (as shown in listOrphanedPayments), rather than waiting for
 // the next automatic sweep.
-async function refundOrphanedPaymentById(paymentId) {
+async function refundOrphanedPaymentById(paymentId, refundedBy = null) {
 
     const payment = await paymentStore.getPaymentById(paymentId);
 
@@ -279,8 +289,33 @@ async function refundOrphanedPaymentById(paymentId) {
         throw new Error("This payment isn't an orphaned capture — nothing to refund here.");
     }
 
-    return refundOrphanedPayment(payment);
+    return refundOrphanedPayment(payment, refundedBy || "admin");
 
+}
+
+// 'captured' is one DB status covering two very different situations: the
+// money arrived and an order exists for it, or the money arrived and nothing
+// was ever made. The second needs a human, so it gets its own name here
+// rather than being left for an operator to spot by reading the order_id
+// column. Computed server-side so the admin screen and the refund tooling
+// cannot disagree about which payments are stuck.
+function computeDisplayStatus(payment) {
+    switch (payment.status) {
+        case "created":   return "pending";
+        case "captured":  return payment.orderId ? "paid" : "needs_attention";
+        case "refunding": return "refund_initiated";
+        case "refunded":  return "refund_completed";
+        case "failed":    return "failed";
+        default:          return payment.status;
+    }
+}
+
+async function listAllPayments() {
+    const payments = await paymentStore.listAllPayments();
+    return payments.map((payment) => ({
+        ...payment,
+        displayStatus: computeDisplayStatus(payment)
+    }));
 }
 
 // For the admin dashboard: every currently-orphaned captured payment, so
@@ -330,6 +365,8 @@ module.exports = {
     createPaymentIntent,
     verifyAndFinalizePayment,
     finalizeFromWebhook,
+    listAllPayments,
+    computeDisplayStatus,
     listOrphanedPayments,
     refundOrphanedPaymentById,
     reconcileOrphanedPayments

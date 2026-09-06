@@ -1,12 +1,14 @@
 {
   "name": "oopsyink-be",
   "version": "1.0.0",
-  "description": "OopsyInk backend — personalized children's storybook generation, auth, orders, and CMS content API.",
+  "description": "OopsyInk backend \u2014 personalized children's storybook generation, auth, orders, and CMS content API.",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "migrate": "node scripts/migrate.js"
+    "migrate": "node scripts/migrate.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "admin": "node scripts/admin-user.js"
   },
   "keywords": [],
   "author": "Shashank Parikh",

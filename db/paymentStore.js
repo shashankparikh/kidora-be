@@ -27,6 +27,7 @@ function toPayment(row) {
         failureReason: row.failure_reason,
         refundId: row.refund_id,
         refundedAt: row.refunded_at,
+        refundedBy: row.refunded_by,
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
@@ -113,9 +114,13 @@ async function findOrphanedCapturedPayments() {
 // The `WHERE status != 'captured'` makes this UPDATE a no-op for whichever
 // caller loses the race — result.changes tells the caller whether *it*
 // was the one that actually flipped the row, so only that caller goes on
-// to create the real order. Safe without extra locking because
-// better-sqlite3 is synchronous and single-threaded per process, so
-// SQLite itself serializes the two UPDATEs.
+// to create the real order. Safe without extra locking on Postgres too,
+// but for a different reason than it was under better-sqlite3: two
+// concurrent UPDATEs targeting the same row serialize on that row's write
+// lock, and the loser re-evaluates its WHERE against the winner's
+// committed status — which by then is 'captured', so it matches nothing
+// and reports zero changes. That holds across processes, so it survives
+// running more than one instance.
 //
 // This deliberately does NOT set order_id yet — the order doesn't exist
 // at the moment a caller wins this claim, it's created right after. See
@@ -199,13 +204,14 @@ async function claimRefund({ razorpayOrderId }) {
 
 }
 
-async function markRefunded({ razorpayOrderId, refundId }) {
+async function markRefunded({ razorpayOrderId, refundId, refundedBy = "system" }) {
 
     await run(
         `UPDATE payments
-         SET status = 'refunded', refund_id = $2, refunded_at = $3, updated_at = $3
+         SET status = 'refunded', refund_id = $2, refunded_at = $3,
+             refunded_by = $4, updated_at = $3
          WHERE razorpay_order_id = $1 AND status = 'refunding'`,
-        [razorpayOrderId, refundId, nowIso()]
+        [razorpayOrderId, refundId, nowIso(), refundedBy]
     );
 
     return getPaymentByRazorpayOrderId(razorpayOrderId);
@@ -232,8 +238,27 @@ async function markRefundFailed({ razorpayOrderId, reason }) {
 
 }
 
+// The whole payments ledger for admin, customer attached. Users are joined
+// rather than looked up per row because the screen shows every payment at
+// once and an N+1 over a growing table is how that screen gets slow without
+// anyone noticing.
+async function listAllPayments() {
+    const rows = await all(
+        `SELECT p.*, u.first_name, u.last_name, u.email
+         FROM payments p
+         LEFT JOIN users u ON u.id = p.user_id
+         ORDER BY p.created_at DESC`
+    );
+    return rows.map((row) => ({
+        ...toPayment(row),
+        customerName: [row.first_name, row.last_name].filter(Boolean).join(" ") || null,
+        customerEmail: row.email || null
+    }));
+}
+
 module.exports = {
     createPayment,
+    listAllPayments,
     getPaymentByRazorpayOrderId,
     getPaymentByRazorpayPaymentId,
     getPaymentById,

@@ -1,4 +1,5 @@
 const { getBook } = require("../utils/bookHelper");
+const pipeline = require("./orderPipeline");
 const orderStore = require("../db/orderStore");
 const analyticsService = require("./analyticsService");
 const { getSignedGetUrl } = require("./s3Service");
@@ -84,31 +85,41 @@ async function getOrderForUser(orderId, userId) {
     return await orderStore.getOrderByIdForUser(orderId, userId);
 }
 
-// Admin dashboard deals in "pending / success / rejected" — there's no
-// real payment gateway yet, so every order the system creates today lands
-// straight on the DB's 'delivered' status (see orders table comment in
-// database.js). Rather than invent a literal 'success' status string in
-// the DB (which would fork from the 'delivered' language the customer-
-// facing Orders page already uses), this aliases at the API boundary:
-// 'success' in <-> 'delivered' in the DB, everything else passes through
-// unchanged so a real 'pending'/'rejected' status can be introduced later
-// (e.g. once a payment gateway exists) without another migration here.
-const DISPLAY_TO_DB_STATUS = { success: "delivered" };
-const DB_TO_DISPLAY_STATUS = { delivered: "success" };
+// The admin Orders ledger filters by where an order is, not by the eleven
+// individual pipeline statuses — an operator wants "still ours", "at the
+// printer", "done", not a tab per state. Groups live here rather than in the
+// admin app so the API and the screen cannot drift apart.
+const STATUS_GROUPS = {
+    open: [
+        pipeline.STATUS.NEW_ORDER,
+        pipeline.STATUS.PREVIEW_GENERATED,
+        pipeline.STATUS.PENDING_REVIEW,
+        pipeline.STATUS.BUYER_COMMENTS,
+        pipeline.STATUS.PREVIEW_APPROVED,
+        pipeline.STATUS.PREVIEW_AUTO_APPROVED
+    ],
+    production: [
+        pipeline.STATUS.BOOK_GENERATED,
+        pipeline.STATUS.PRINTING,
+        pipeline.STATUS.SHIPPED
+    ],
+    delivered: [pipeline.STATUS.DELIVERED],
+    cancelled: [pipeline.STATUS.CANCELLED]
+};
 
-async function listAllOrders({ status } = {}) {
+async function listAllOrders({ status, group } = {}) {
 
-    const dbStatus = status ? (DISPLAY_TO_DB_STATUS[status] || status) : undefined;
-    const orders = await orderStore.listAllOrders({ status: dbStatus });
+    const orders = await orderStore.listAllOrders({
+        status: status || undefined,
+        statuses: group ? STATUS_GROUPS[group] : undefined
+    });
 
-    return Promise.all(orders.map(async (order) => signOrder({
-        ...order,
-        status: DB_TO_DISPLAY_STATUS[order.status] || order.status
-    })));
+    return Promise.all(orders.map(signOrder));
 
 }
 
 module.exports = {
+    STATUS_GROUPS,
     createOrder,
     listOrdersForUser,
     getOrderForUser,

@@ -46,7 +46,7 @@ async function getEligibility(orderId, userId) {
         return { eligible: false, reason: "not_found" };
     }
 
-    if (order.status !== "delivered") {
+    if (order.status !== pipeline.STATUS.DELIVERED) {
         return { eligible: false, reason: "not_delivered" };
     }
 
@@ -70,7 +70,7 @@ async function createReview({ orderId, userId, rating, title, comment }) {
         throw new Error("Order not found.");
     }
 
-    if (order.status !== "delivered") {
+    if (order.status !== pipeline.STATUS.DELIVERED) {
         throw new Error("This order hasn't been delivered yet.");
     }
 

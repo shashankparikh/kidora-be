@@ -11,7 +11,8 @@ async function getPublicSettings(req, res) {
         success: true,
         settings: {
             previewMode: settings.preview_mode,
-            previewPageCount: settings.preview_page_count
+            previewPageCount: settings.preview_page_count,
+            busyNotice: settings.busy_notice
         }
     });
 

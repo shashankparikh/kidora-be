@@ -18,6 +18,21 @@ const SCHEMA = {
             ["web", "email"].includes(v) ||
             "preview_mode must be 'web' or 'email'"
     },
+    // A note shown to customers when you are busier than usual — on the
+    // checkout, so it sets expectations before someone pays, and on the
+    // preview page, so a slow turnaround has an explanation attached.
+    //
+    // One free-text field rather than a boolean plus a message: the presence
+    // of text IS the toggle, so it cannot end up enabled-but-blank or
+    // disabled-with-text-nobody-sees.
+    busy_notice: {
+        fallback: "",
+        parse: (v) => v,
+        validate: (v) =>
+            typeof v === "string"
+                ? (v.length <= 240 || "Keep the notice under 240 characters — it sits above the pay button.")
+                : "busy_notice must be text"
+    },
     preview_page_count: {
         fallback: 4,
         parse: (v) => Number(v),

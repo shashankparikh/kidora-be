@@ -72,7 +72,6 @@ start without:
 | `DATABASE_URL` | step 1 |
 | `FRONTEND_URL`, `ADMIN_URL` | `http://localhost:5173` and `http://localhost:5174` locally. **Both are required** — the server refuses to boot without them, because a wrong CORS origin should be loud rather than a 500 nobody notices. |
 | `JWT_ACCESS_SECRET`, `ADMIN_JWT_SECRET` | generate your own, below |
-| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | your own choice, local only |
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -109,7 +108,43 @@ Health check: <http://localhost:3000/health>
 
 ---
 
-## 4. Verify it actually works
+## 4. Create an operator login
+
+The admin panel has no default account — a fresh database has nobody who can
+sign in, on purpose.
+
+```bash
+npm run admin -- add --user niharika --name "Niharika"
+```
+
+The password is generated and printed **once**; it is stored only as a bcrypt
+hash and cannot be recovered. Other commands:
+
+```bash
+npm run admin -- list
+npm run admin -- passwd  --user niharika    # new password, printed once
+npm run admin -- disable --user niharika    # revoke access, keep their history
+npm run admin -- enable  --user niharika
+```
+
+Accounts live in the database rather than in env, so a person can be added or
+revoked without a redeploy — and so every status change, note, upload and
+refund in the queue is stamped with the name of whoever made it. Render's free
+plan has no shell, so manage the live accounts by pointing this at the
+production database from your own machine:
+
+```bash
+DATABASE_URL="postgresql://...pooler.supabase.com:5432/postgres" \
+  npm run admin -- add --user aakanshi --name "Aakanshi"
+```
+
+A disabled operator keeps their name on everything they did. `order_events` is
+append-only; deactivating is not deletion, because history that quietly loses
+its author is worse than no history.
+
+---
+
+## 5. Verify it actually works
 
 ```bash
 curl -s localhost:3000/health
