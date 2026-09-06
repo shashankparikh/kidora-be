@@ -11,7 +11,7 @@ const storyThemes = [
         name: "The Friendly Farm Adventure",
         description: "Join new friends on the farm for a day full of fun, teamwork and happy surprises.",
         icon: "🐄",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/friendly_farm.png"
     },
 
@@ -20,7 +20,7 @@ const storyThemes = [
         name: "The Great Jungle Celebration",
         description: "The jungle friends throw a joyful party everyone will always remember.",
         icon: "🦁",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/great_jungle_celebration.png"
     },
 
@@ -29,7 +29,7 @@ const storyThemes = [
         name: "The Magical Train Journey",
         description: "All aboard for a magical ride to faraway lands filled with wonder and dreams.",
         icon: "🚂",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/magical_train.png"
     },
 
@@ -38,7 +38,7 @@ const storyThemes = [
         name: "The Great Dinosaur Rescue",
         description: "A brave mission to help dino friends and keep everyone safe.",
         icon: "🦕",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/great_dinosaur_rescue.png"
     },
 
@@ -47,7 +47,7 @@ const storyThemes = [
         name: "The Dinosaur Time-Travel Adventure",
         description: "Step through time and discover the amazing world of dinosaurs.",
         icon: "🦖",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/dinosaur_time_travel.png"
     },
 
@@ -56,7 +56,7 @@ const storyThemes = [
         name: "The Magical Carnival Adventure",
         description: "Lights, laughter and magic come together for the best day ever!",
         icon: "🎡",
-        ageRange: "3-8",
+        ageRange: "1-12",
         image: "/magical_carnival.png"
     }
 

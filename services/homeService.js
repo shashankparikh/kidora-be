@@ -86,6 +86,24 @@ async function getHomeWidgets() {
     },
 
     {
+      widget_code: "adventure_carousel_main",
+      widget_name: "Choose Your Adventure",
+      widget_type: "adventure_carousel",
+      data: {
+        eyebrow: "Pick A World",
+        title: "Choose Your Adventure",
+        subtitle:
+          "Spin through the magical worlds your child could star in next.",
+        cta: "Personalize",
+        items: themeService.getStoryThemes().map((theme) => ({
+          id: theme.id,
+          title: theme.name,
+          img_url: theme.image,
+        })),
+      },
+    },
+
+    {
       widget_code: "how_it_works_main",
       widget_name: "How It Works",
       widget_type: "how_it_works",
